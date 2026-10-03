@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink-950: #0b0c10;
+  --color-ink-900: #111218;
+  --color-ink-850: #16171f;
+  --color-ink-800: #1c1d27;
+  --color-ink-700: #272937;
+  --color-ink-600: #363949;
+  --color-ink-400: #7d8197;
+  --color-ink-300: #a3a7bb;
+  --color-ink-100: #e8e9f0;
+  --color-accent: #7c5cff;
+  --color-accent-soft: #7c5cff26;
+  --color-danger: #ff5c7a;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--color-ink-950);
+  color: var(--color-ink-100);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  height: 18px;
+}
+input[type="range"]::-webkit-slider-runnable-track { height: 3px; background: var(--color-ink-600); border-radius: 2px; }
+input[type="range"]::-moz-range-track { height: 3px; background: var(--color-ink-600); border-radius: 2px; }
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 12px; height: 12px; margin-top: -4.5px; border-radius: 50%;
+  background: var(--color-ink-100); border: 2px solid var(--color-accent);
+}
+input[type="range"]::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; background: var(--color-ink-100); border: 2px solid var(--color-accent); }
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+input[type="color"] { -webkit-appearance: none; border: none; padding: 0; background: none; }
+input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+input[type="color"]::-webkit-color-swatch { border: 1px solid var(--color-ink-600); border-radius: 6px; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--color-ink-700); border-radius: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+.checker {
+  background-color: #2a2b33;
+  background-image: linear-gradient(45deg, #34353f 25%, transparent 25%), linear-gradient(-45deg, #34353f 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #34353f 75%), linear-gradient(-45deg, transparent 75%, #34353f 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}

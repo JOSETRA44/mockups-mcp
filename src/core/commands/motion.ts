@@ -194,13 +194,15 @@ const Waypoint = z.object({
       x: z.number().min(0).max(1),
       y: z.number().min(0).max(1),
       size: z.number().min(0.05).max(3).default(0.5).describe('Region height as a fraction of the screen height; >1 frames wider than the screen'),
+      w: z.number().min(0.05).max(3).optional().describe('Region width as a fraction of the screen width (default = size). Full-width UI (cards, buttons): ~0.95'),
       deviceId: z.string().optional(),
       face: z.number().min(0).max(1).default(1),
     })
+    .strict()
     .optional()
     .describe('Frame a region of a device screen (UV from top-left). Overrides target/distance (and yaw/pitch when face>0).'),
   ease: EaseId.default('product').describe('Interpolation from this waypoint to the next'),
-})
+}).strict()
 
 export const setCameraPath = defineCommand({
   name: 'set_camera_path',

@@ -1,51 +1,80 @@
 # Unicali Mockups
 
-A browser editor for animated 3D device mockups (app promo videos, reels, landing pages).
-Drop a screenshot or screen recording onto a phone, stack motion presets, preview in real time,
-and export MP4 / WebM (with alpha) / PNG sequences. It is local-first: no backend, and projects live in IndexedDB.
+Animated 3D device mockups for app promo videos — in the browser, and fully drivable by AI agents.
+
+Drop a screenshot or screen recording onto a 3D phone, stack motion presets (hero reveal,
+orbit, push-in, screen focus…), design camera journeys, preview in real time, and export
+MP4 / WebM with alpha / PNG sequences. Everything a human can do in the editor, an agent can
+do through **MCP**, the **CLI** or the **HTTP API** — and both can work on the same project
+live.
+
+## Quick start
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173
-npm test           # core unit tests (Vitest)
-npm run test:e2e   # end-to-end export tests in real Chrome (Playwright)
+npm run serve          # editor + API + live sync → http://127.0.0.1:5299
 ```
 
-## Architecture
+Projects are saved to `~/UnicaliMockups` (change with `UNICALI_HOME`). Want just the editor
+with browser storage? `npm run dev`.
 
-```
-src/core     pure TS, no DOM/three: document schema, animation, presets, devices, camera math
-src/engine   three.js renderer that draws a ResolvedScene (no notion of time or presets)
-src/export   offline deterministic renderer + WebCodecs encoding (Mediabunny)
-src/media    import/probe, IndexedDB storage (Dexie)
-src/state    zustand stores: document (undoable) + playback
-src/ui       React editor: viewport, sidebar, inspector, timeline, export dialog
-```
+Requires Node 20+ and Google Chrome (used for headless rendering and H.264 export).
 
-- **The document is the contract.** `Project` is versioned JSON validated by Zod (`core/schema`), with a migration hook for future versions.
-- **Channels.** Every animatable property is a flat numeric channel (`device-x.rotation.y`, `camera.distance`). New node types only need to declare their channels (`core/animation/channels.ts`).
-- **Presets are functions, not baked animations.** `build(params, ctx) → curves` (`core/presets`). A clip on the timeline stores only `presetId + params`, so changing a slider regenerates the motion. Curves can be `offset` (they stack, e.g. Floating on top of Side Entrance) or `absolute`. *Convert to keyframes* bakes a clip into editable tracks.
-- **`evaluate(project, t)` is pure.** The viewport and the exporter call the same function and the same `Engine`. Preview equals export.
-- **Camera is an orbit rig** (target / yaw / pitch / distance / fov), so camera presets compose cleanly. *Screen Focus* maps a rectangle in screen UV space to a world-space camera pose.
-- **Screen shader** (`engine/screen/ScreenMaterial.ts`): an unlit SDF rounded mask with cover/contain/fill and content zoom/pan. It is not tone mapped, so app colours stay exact.
+## For humans
 
-### Adding things
-- **Preset:** write one object in `core/presets/*` and add it to `registry.ts`. Its inspector UI is generated from its `params`.
-- **Device:** add a spec to `core/devices/registry.ts`. GLB devices plug into the same spec through a new `builder`.
+1. **Media** tab: drop a screenshot or screen recording.
+2. **Motion** tab: start from a template or click presets to add them at the playhead.
+   Motions stack; drag/resize clips on the timeline.
+3. **Camera journeys**: select *Camera*, move the playhead, frame a shot (sliders, drag in the
+   viewport, scroll to zoom) and press **Key camera here**. Repeat. Once a channel has
+   keyframes, sliders edit the key at the playhead; the ◆ button toggles keys.
+4. **Export**: MP4, WebM (alpha) or PNG sequence; resolution up to 2×, motion blur, audio.
 
-## Export: why this approach
+Shortcuts: Space play/pause · ←/→ frame step (Shift = 1 s) · Home/End · Ctrl+Z / Ctrl+Shift+Z · Delete removes a clip.
 
-| Approach | Verdict |
+## For agents
+
+- **Claude Code in this repo**: the `unicali` MCP server is configured in `.mcp.json` and the
+  `unicali-mockups` skill in `.claude/skills/` teaches the workflow. Just ask:
+  *"make a 8-second reel from ~/Desktop/home.png that zooms into the balance card"*.
+- **Any MCP client**: `node bin/unicali.mjs mcp-config` prints the config to paste.
+- **Scripts / CI**: `node bin/unicali.mjs help`.
+
+Agents get a `render_frames` tool that returns rendered frames as an image, so they can check
+their work visually before exporting. Full guide: [docs/agents.md](docs/agents.md).
+
+## Documentation
+
+| Doc | What's inside |
 |---|---|
-| `canvas.captureStream()` + MediaRecorder | ❌ Real-time capture: drops frames when the GPU stalls, variable frame rate, weak codec control |
-| ffmpeg.wasm | ❌ Slow (no hardware acceleration), ~30 MB download |
-| **Offline render + WebCodecs + Mediabunny** | ✅ Frame-exact, hardware encoders, MP4/WebM muxing in the browser |
+| [docs/agents.md](docs/agents.md) | MCP setup, tools, CLI, HTTP API, workspace layout |
+| [docs/architecture.md](docs/architecture.md) | Layers, document model, evaluation, sync, scaling plan |
+| [docs/export.md](docs/export.md) | Why offline WebCodecs export, formats, colour, performance |
+| [docs/extending.md](docs/extending.md) | Add presets, commands, templates, devices, node types |
+| [docs/reference/commands.md](docs/reference/commands.md) | Every command and argument (generated) |
+| [docs/reference/presets.md](docs/reference/presets.md) | Presets, templates, devices, channels (generated) |
+| [AGENTS.md](AGENTS.md) | Rules for coding agents working on this repo |
 
-How it works (`export/exporter.ts`):
-1. A separate `Engine` renders on an `OffscreenCanvas` at the output resolution, independent of the viewport.
-2. For each frame it evaluates `t = i / fps`, waits for the screen video frame decoded *exactly* at `t` (Mediabunny `CanvasSink`, never `<video>.currentTime`), renders, then calls `CanvasSource.add()`. That call waits whenever the encoder queue is full (backpressure).
-3. Optional motion blur averages N sub-frames per frame (180° shutter).
-4. MP4 uses H.264 (falling back to HEVC/VP9/AV1), WebM uses VP9 with alpha, and PNG sequences are zipped with fflate. Screen-recording audio is copied without re-encoding when the container supports its codec.
-5. *Stream to file* writes through the File System Access API, so long 4K exports never sit in RAM.
+## Development
 
-Future: a server renderer (headless Chrome running the same `core` + `engine`, plus FFmpeg for ProRes 4444) can consume the same JSON document.
+```bash
+npm run serve:dev    # server with Vite HMR
+npm test             # unit tests (core + commands)
+npm run test:e2e     # Playwright in real Chrome: export, MCP, live sync
+npm run typecheck
+npm run docs         # regenerate reference docs from code
+```
+
+## Project layout
+
+```
+src/core      pure TS: schema, animation, presets, camera math, commands (shared by all clients)
+src/engine    three.js renderer (devices, screen shader, lighting)
+src/export    offline WebCodecs exporter
+src/ui        React editor
+src/render    headless render page (driven by the server)
+server/       workspace, HTTP + WebSocket, headless renderer, MCP server, CLI
+.claude/skills/unicali-mockups   agent skill (workflow + camera direction + recipes)
+docs/         documentation (reference/ is generated)
+e2e/          Playwright tests
+```

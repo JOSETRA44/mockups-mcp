@@ -81,6 +81,10 @@ test('an agent can build and export a video through MCP', async ({}, info) => {
     // Validation errors come back as tool errors with a readable message.
     const bad = await client.callTool({ name: 'add_motion', arguments: { preset: 'tilt', params: { angleX: 500 } } })
     expect(bad.isError).toBe(true)
+    // Misspelled arguments are rejected, not silently ignored.
+    const typo: any = await client.callTool({ name: 'set_camera', arguments: { yawn: 10 } })
+    expect(typo.isError).toBe(true)
+    expect(JSON.stringify(typo.content)).toContain('yawn')
 
     const undo = parse(await client.callTool({ name: 'undo', arguments: {} }))
     expect(undo.summary.keyframeTracks.length).toBe(0) // camera path undone

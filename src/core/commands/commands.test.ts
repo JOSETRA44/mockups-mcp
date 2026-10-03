@@ -15,6 +15,9 @@ describe('commands', () => {
     expect(() => runCommand(p, 'nope', {})).toThrow(/Unknown command/)
     expect(() => runCommand(p, 'set_background', { color: 'red' })).toThrow(/#RRGGBB/)
     expect(() => runCommand(p, 'add_motion', { preset: 'tilt', params: { angleX: 999 } })).toThrow(/\[-45, 45\]/)
+    // Typos fail loudly instead of being ignored (top level and nested).
+    expect(() => runCommand(p, 'set_camera', { yawn: 10 })).toThrow(/yawn/)
+    expect(() => runCommand(p, 'set_camera_path', { waypoints: [{ time: 0, focus: { x: 0.5, y: 0.5, wdth: 1 } }] })).toThrow(/wdth/)
     try {
       runCommand(p, 'set_screen', { assetId: 'missing' })
     } catch (e) {

@@ -14,7 +14,8 @@
     "serve": "node bin/unicali.mjs serve",
     "serve:dev": "node bin/unicali.mjs serve --dev",
     "mcp": "node bin/unicali.mjs mcp",
-    "unicali": "node bin/unicali.mjs"
+    "unicali": "node bin/unicali.mjs",
+    "docs": "tsx scripts/gen-docs.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.0",

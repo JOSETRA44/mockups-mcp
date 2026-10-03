@@ -8,6 +8,11 @@ export interface ScreenRegion {
   y: number
   /** Region height as a fraction of the screen height (0.1 = tight, 1 = whole screen). */
   size: number
+  /**
+   * Region width as a fraction of the screen width. Defaults to `size`. Most mobile UI
+   * (cards, buttons, lists) spans the full width, so pass ~0.95 to keep it uncropped.
+   */
+  w?: number
 }
 
 export interface DevicePose {
@@ -35,7 +40,7 @@ export function frameScreenRegion(
   const faceYaw = (Math.atan2(normal[0], normal[2]) * 180) / Math.PI
   const facePitch = (Math.asin(Math.max(-1, Math.min(1, normal[1]))) * 180) / Math.PI
   const rectH = spec.screen.height * region.size * scale
-  const rectW = rectH * (spec.screen.width / spec.screen.height)
+  const rectW = spec.screen.width * (region.w ?? region.size) * scale
   return {
     target,
     yaw: current.yaw + (faceYaw - current.yaw) * face,

@@ -138,7 +138,8 @@ export async function runMcpServer() {
     mcp.registerTool(cmd.name, {
       title: cmd.summary,
       description: `${cmd.summary}. ${cmd.description}`,
-      inputSchema: { projectId, ...shape },
+      // Strict: a misspelled argument is reported to the agent instead of silently dropped.
+      inputSchema: z.object({ projectId, ...shape }).strict(),
     }, safe(async (a: Record<string, unknown>) => {
       const { projectId: p, ...args } = a
       const id = await pid(p as string | undefined)

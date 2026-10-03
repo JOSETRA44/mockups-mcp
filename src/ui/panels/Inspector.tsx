@@ -318,7 +318,7 @@ function FocusPicker({ clip }: { clip: Clip }) {
   const dev = project.nodes.find((n): n is DeviceNode => n.type === 'device' && n.id === clip.target) ?? firstDevice(project)
   const asset = dev?.screen.assetId ? project.assets[dev.screen.assetId] : null
   const url = useBlobUrl(asset?.id)
-  const fx = Number(clip.params.focusX ?? 0.5), fy = Number(clip.params.focusY ?? 0.35), size = Number(clip.params.size ?? 0.6)
+  const fx = Number(clip.params.focusX ?? 0.5), fy = Number(clip.params.focusY ?? 0.35), size = Number(clip.params.size ?? 0.6), w = Number(clip.params.width ?? size)
 
   const pick = (e: React.PointerEvent) => {
     const r = ref.current!.getBoundingClientRect()
@@ -340,7 +340,7 @@ function FocusPicker({ clip }: { clip: Clip }) {
           : <video src={`${url}#t=0.1`} muted className="pointer-events-none h-full w-full object-cover" />)}
         <div
           className="pointer-events-none absolute rounded border-2 border-accent bg-accent/15 shadow-[0_0_0_999px_rgba(0,0,0,0.45)]"
-          style={{ width: `${size * 100}%`, height: `${size * 100}%`, left: `${(fx - size / 2) * 100}%`, top: `${(fy - size / 2) * 100}%` }}
+          style={{ width: `${w * 100}%`, height: `${size * 100}%`, left: `${(fx - w / 2) * 100}%`, top: `${(fy - size / 2) * 100}%` }}
         />
       </div>
       <p className="text-center text-[11px] text-ink-400">{t('inspector.focusPick')}</p>

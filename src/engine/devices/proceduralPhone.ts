@@ -67,8 +67,9 @@ export function buildProceduralPhone(spec: DeviceSpec): DeviceObject {
 
   // Reflection layer: black + additive blending = only the specular reflection is added.
   const glareMat = new MeshStandardMaterial({
-    color: '#000000', roughness: 0.12, metalness: 0, transparent: true, blending: AdditiveBlending,
-    depthWrite: false, envMapIntensity: 0.55,
+    color: '#000000', roughness: 0.22, metalness: 0, transparent: true, blending: AdditiveBlending,
+    // Additive: opacity scales the reflection (envMapIntensity is ignored with scene.environment).
+    depthWrite: false, opacity: 0.22,
   })
   const glare = new Mesh(new ShapeGeometry(roundedRect(W - 0.014, H - 0.014, R - 0.007), 32), glareMat)
   glare.position.z = screenSurfaceZ(spec) + 0.0008

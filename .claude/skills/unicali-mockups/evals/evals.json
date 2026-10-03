@@ -1,0 +1,23 @@
+{
+  "skill_name": "unicali-mockups",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "tengo un screenshot de mi app de finanzas en C:/Users/me/Desktop/home.png, hazme un video vertical para un reel de unos 8 segundos que haga zoom a la tarjeta de saldo arriba y luego al botón de transferir abajo",
+      "expected_output": "A 9:16 project with the screenshot on the phone, a camera path with focus waypoints near the top (y≈0.2-0.35) and bottom (y≈0.75-0.9) with holds, frames rendered and inspected, an exported MP4 path reported.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Make a transparent-background spinning phone loop from ./assets/dashboard.png for our landing page hero, 6 seconds",
+      "expected_output": "Background set to transparent, orbit-showcase or hero-spin motion, export as WebM (alpha) or PNG sequence — not MP4.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Open my latest Unicali project and make the intro feel more premium — it's too fast and bouncy",
+      "expected_output": "Uses get_project to inspect clips, lengthens the entrance, swaps spring/backOut easing for product/easeInOut, renders frames before and after, explains the change.",
+      "files": []
+    }
+  ]
+}

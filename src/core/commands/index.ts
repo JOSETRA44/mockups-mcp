@@ -45,7 +45,9 @@ export const getCommand = (name: string) => byName.get(name)
 export function runCommand(project: Project, name: string, rawArgs: unknown, ctx: CommandContext = defaultContext): CommandOutput {
   const cmd = byName.get(name)
   if (!cmd) throw new CommandError('UNKNOWN_COMMAND', `Unknown command "${name}". Available: ${COMMANDS.map((c) => c.name).join(', ')}`)
-  const parsed = cmd.args.safeParse(rawArgs ?? {})
+  // Strict at the top level: a misspelled argument must fail loudly, not be silently ignored.
+  const schema = cmd.args instanceof z.ZodObject ? cmd.args.strict() : cmd.args
+  const parsed = schema.safeParse(rawArgs ?? {})
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `${i.path.join('.') || '(args)'}: ${i.message}`).join('; ')
     throw new CommandError('INVALID_ARGS', `${name}: ${issues}`)

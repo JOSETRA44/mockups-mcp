@@ -78,7 +78,8 @@ export const screenFocus: Preset = {
   params: [
     { key: 'focusX', label: 'Focus X', type: 'number', min: 0, max: 1, step: 0.01, default: 0.5 },
     { key: 'focusY', label: 'Focus Y', type: 'number', min: 0, max: 1, step: 0.01, default: 0.35 },
-    { key: 'size', label: 'Region size', type: 'number', min: 0.1, max: 1, step: 0.01, default: 0.6 },
+    { key: 'size', label: 'Region height', type: 'number', min: 0.1, max: 1, step: 0.01, default: 0.6 },
+    { key: 'width', label: 'Region width', type: 'number', min: 0.1, max: 1, step: 0.01, default: 0.6 },
     { key: 'face', label: 'Face screen', type: 'number', min: 0, max: 1, step: 0.05, default: 1 },
     { key: 'release', label: 'Zoom back out', type: 'boolean', default: true },
     easeParam('product'),
@@ -87,7 +88,7 @@ export const screenFocus: Preset = {
     if (!ctx.device) return []
     const e = str(p, 'ease')
     const face = num(p, 'face', 1)
-    const region = { x: num(p, 'focusX', 0.5), y: num(p, 'focusY', 0.35), size: num(p, 'size', 0.6) }
+    const region = { x: num(p, 'focusX', 0.5), y: num(p, 'focusY', 0.35), size: num(p, 'size', 0.6), w: num(p, 'width', num(p, 'size', 0.6)) }
     const goal = frameScreenRegion(ctx.device, region, ctx.camera, ctx.aspect, face)
 
     const release = bool(p, 'release', true)

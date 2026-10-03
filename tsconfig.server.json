@@ -16,6 +16,6 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["server", "e2e", "src/core"],
+  "include": ["server", "e2e", "scripts", "src/core"],
   "exclude": ["src/**/*.test.ts"]
 }

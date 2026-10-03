@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
-import { listProjects, saveProject } from '@/media/assetStore'
-import { parseProject } from '@/core/schema/project'
 import { redo, undo, useEditor } from '@/state/editor'
-import { cueProject, usePlayback } from '@/state/playback'
+import { usePlayback } from '@/state/playback'
+import { useProjectSync } from '@/state/sync'
 import { ExportDialog } from '@/ui/ExportDialog'
 import { Header } from '@/ui/Header'
 import { Inspector } from '@/ui/panels/Inspector'
@@ -10,35 +9,6 @@ import { Sidebar } from '@/ui/panels/Sidebar'
 import { Timeline } from '@/ui/timeline/Timeline'
 import { Toasts } from '@/ui/common/toast'
 import { Viewport } from '@/ui/Viewport'
-
-/** Restores the most recent project, then autosaves every change (debounced). */
-function useLocalPersistence() {
-  useEffect(() => {
-    let timer = 0
-    let ready = false
-    void listProjects()
-      .then((rows) => {
-        if (rows[0]) {
-          useEditor.getState().setProject(parseProject(rows[0].doc))
-          useEditor.temporal.getState().clear()
-        }
-      })
-      .catch((err) => console.warn('[persistence] could not restore project', err))
-      .finally(() => {
-        ready = true
-        cueProject(useEditor.getState().project)
-      })
-    const unsub = useEditor.subscribe((s, prev) => {
-      if (!ready || s.project === prev.project) return
-      clearTimeout(timer)
-      timer = window.setTimeout(() => void saveProject(useEditor.getState().project), 600)
-    })
-    return () => {
-      unsub()
-      clearTimeout(timer)
-    }
-  }, [])
-}
 
 function useShortcuts() {
   useEffect(() => {
@@ -79,7 +49,7 @@ function useShortcuts() {
 
 export default function App() {
   const [exporting, setExporting] = useState(false)
-  useLocalPersistence()
+  useProjectSync()
   useShortcuts()
   return (
     <div className="flex h-full flex-col">

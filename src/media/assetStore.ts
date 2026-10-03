@@ -32,9 +32,22 @@ export async function putBlob(id: string, blob: Blob) {
   await db.blobs.put({ id, blob })
 }
 
+/** When set, assets are fetched from a Unicali server instead of IndexedDB. */
+let remoteBase: string | null = null
+export function setRemoteAssetBase(base: string) {
+  remoteBase = base
+}
+
 export async function getBlob(id: string): Promise<Blob | null> {
   const hit = memory.get(id)
   if (hit) return hit
+  if (remoteBase !== null) {
+    const res = await fetch(`${remoteBase}/api/assets/${encodeURIComponent(id)}`)
+    if (!res.ok) return null
+    const blob = await res.blob()
+    memory.set(id, blob)
+    return blob
+  }
   const row = await db.blobs.get(id)
   if (row) memory.set(id, row.blob)
   return row?.blob ?? null

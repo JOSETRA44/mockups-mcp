@@ -99,13 +99,14 @@ export function Timeline() {
   const ticks: number[] = []
   const step = pxPerSec > 80 ? 0.5 : pxPerSec > 30 ? 1 : 5
   for (let s = 0; s <= duration + 1e-6; s += step) ticks.push(+s.toFixed(2))
-  const tracksByNode = new Map<string, { from: number; to: number }>()
+  const tracksByNode = new Map<string, { from: number; to: number; times: Set<number> }>()
   for (const tr of project.tracks) {
     if (!tr.keyframes.length) continue
     const node = tr.path.split('.')[0]
-    const span = tracksByNode.get(node) ?? { from: Infinity, to: -Infinity }
+    const span = tracksByNode.get(node) ?? { from: Infinity, to: -Infinity, times: new Set<number>() }
     span.from = Math.min(span.from, tr.keyframes[0].t)
     span.to = Math.max(span.to, tr.keyframes[tr.keyframes.length - 1].t)
+    for (const k of tr.keyframes) span.times.add(Math.round(k.t * 1000) / 1000)
     tracksByNode.set(node, span)
   }
 
@@ -199,9 +200,19 @@ export function Timeline() {
                     style={{ left: span.from * pxPerSec, width: Math.max(8, (span.to - span.from) * pxPerSec), top: 4 + clipLanes * LANE_H, height: LANE_H - 4 }}
                     onPointerDown={(e) => { e.stopPropagation(); select(row.id === 'camera' ? { kind: 'camera' } : { kind: 'device', id: row.id }) }}
                   >
-                    <KeyRound size={11} /> {t('timeline.keyframes')}
+                    <KeyRound size={11} /> {span.times.size > 40 && t('timeline.keyframes')}
                   </div>
                 )}
+                {span && span.times.size <= 40 && [...span.times].map((kt) => (
+                  <button
+                    key={kt}
+                    title={`${kt.toFixed(2)}s`}
+                    onPointerDown={(e) => { e.stopPropagation(); usePlayback.getState().pause(); usePlayback.getState().setTime(kt) }}
+                    className="absolute h-2.5 w-2.5 -translate-x-1/2 rotate-45 border border-amber-200 bg-amber-400 hover:scale-125"
+                    style={{ left: kt * pxPerSec, top: 4 + clipLanes * LANE_H + (LANE_H - 4) / 2 - 5 }}
+                    data-testid="keyframe-diamond"
+                  />
+                ))}
               </div>
             )
           })}

@@ -47,7 +47,9 @@ const fragmentShader = /* glsl */ `
       uv = uv * uvScale + uvOffset;
       bool inside = all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)));
       vec2 c = clamp(uv, 0.0, 1.0);
-      if (inside || !letterbox) color = texture2D(map, vec2(c.x, 1.0 - c.y)).rgb; // textures are top-down
+      // Textures are top-down. A screen emits light, so transparent content reads as black.
+      vec4 tx = texture2D(map, vec2(c.x, 1.0 - c.y));
+      if (inside || !letterbox) color = tx.rgb * tx.a;
       else color = vec3(0.0);
     }
     gl_FragColor = vec4(color * brightness, alpha);

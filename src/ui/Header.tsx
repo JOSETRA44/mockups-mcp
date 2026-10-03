@@ -3,9 +3,9 @@ import { useTranslation } from 'react-i18next'
 import { useStore } from 'zustand'
 import { Box, ChevronDown, Download, FilePlus2, FolderOpen, Redo2, Trash2, Undo2 } from 'lucide-react'
 import { createProject } from '@/core/factory'
-import { deleteProject, listProjects, loadProject } from '@/media/assetStore'
+import { backend } from '@/media/backend'
 import { redo, undo, useEditor } from '@/state/editor'
-import { cueProject } from '@/state/playback'
+import { openInEditor, useSync } from '@/state/sync'
 import { Button } from './common/controls'
 
 export function Header({ onExport }: { onExport: () => void }) {
@@ -31,6 +31,7 @@ export function Header({ onExport }: { onExport: () => void }) {
         aria-label="Project name"
       />
       <div className="flex-1" />
+      <SyncBadge />
       <Button title={`${t('header.undo')} (Ctrl+Z)`} onClick={undo} disabled={!canUndo} className="w-8 px-0"><Undo2 size={15} /></Button>
       <Button title={`${t('header.redo')} (Ctrl+Shift+Z)`} onClick={redo} disabled={!canRedo} className="w-8 px-0"><Redo2 size={15} /></Button>
       <Button variant="primary" onClick={onExport} data-testid="open-export">
@@ -49,19 +50,15 @@ function ProjectMenu() {
 
   useEffect(() => {
     if (!open) return
-    void listProjects().then((rows) => setItems(rows.map(({ id, name, updatedAt }) => ({ id, name, updatedAt }))))
+    void backend.list().then(setItems)
     const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false)
     window.addEventListener('mousedown', close)
     return () => window.removeEventListener('mousedown', close)
   }, [open])
 
   const openProject = async (id: string) => {
-    const doc = await loadProject(id)
-    if (doc) {
-      useEditor.getState().setProject(doc)
-      cueProject(doc)
-      useEditor.temporal.getState().clear()
-    }
+    const doc = await backend.load(id)
+    if (doc) openInEditor(doc)
     setOpen(false)
   }
 
@@ -74,11 +71,10 @@ function ProjectMenu() {
         <div className="absolute left-0 top-9 z-30 w-72 overflow-hidden rounded-lg border border-ink-700 bg-ink-850 shadow-2xl">
           <button
             className="flex w-full items-center gap-2 border-b border-ink-700 px-3 py-2.5 text-left hover:bg-ink-800"
-            onClick={() => {
+            onClick={async () => {
               const doc = createProject(t('app.untitled'))
-              useEditor.getState().setProject(doc)
-              cueProject(doc)
-              useEditor.temporal.getState().clear()
+              await backend.create(doc)
+              openInEditor(doc)
               setOpen(false)
             }}
           >
@@ -97,7 +93,7 @@ function ProjectMenu() {
                     title={t('header.delete')}
                     className="text-ink-400 opacity-0 hover:text-danger group-hover:opacity-100"
                     onClick={async () => {
-                      await deleteProject(p.id)
+                      await backend.remove(p.id)
                       setItems((xs) => xs.filter((x) => x.id !== p.id))
                     }}
                   >
@@ -110,5 +106,25 @@ function ProjectMenu() {
         </div>
       )}
     </div>
+  )
+}
+
+/** Shows where the project lives: this browser, or a Unicali server shared with agents. */
+function SyncBadge() {
+  const { t } = useTranslation()
+  const { mode, status, lastRemoteEdit } = useSync()
+  const [, tick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 1000)
+    return () => clearInterval(id)
+  }, [])
+  const recent = Date.now() - lastRemoteEdit < 3000
+  const label = mode === 'local' ? t('sync.local') : status === 'offline' ? t('sync.offline') : recent ? t('sync.agent') : t('sync.live')
+  const color = mode === 'local' ? 'bg-ink-400' : status === 'offline' ? 'bg-danger' : recent ? 'bg-amber-400' : 'bg-emerald-400'
+  return (
+    <span className="mr-1 flex items-center gap-1.5 rounded-full border border-ink-700 px-2.5 py-1 text-[11px] text-ink-300" title={mode === 'remote' ? t('sync.remoteHint') : t('sync.localHint')} data-testid="sync-badge">
+      <span className={`h-1.5 w-1.5 rounded-full ${color} ${recent ? 'animate-ping' : ''}`} />
+      {label}
+    </span>
   )
 }

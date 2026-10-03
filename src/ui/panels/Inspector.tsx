@@ -1,7 +1,12 @@
 import clsx from 'clsx'
 import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Crosshair, KeyRound, Trash2 } from 'lucide-react'
+import { Crosshair, Diamond, KeyRound, Trash2 } from 'lucide-react'
+import { baseChannels } from '@/core/animation/channels'
+import { evaluateChannels } from '@/core/animation/evaluate'
+import { sampleKeyframes } from '@/core/animation/keyframes'
+import { runBatch } from '@/core/commands'
+import { usePlayback } from '@/state/playback'
 import { FORMATS, heroDistance } from '@/core/factory'
 import { getPreset } from '@/core/presets/registry'
 import type { ParamSpec } from '@/core/presets/types'
@@ -110,35 +115,86 @@ function SceneInspector() {
   )
 }
 
+/**
+ * A slider bound to an animatable channel. Without keyframes it edits the rest pose;
+ * once the channel has keyframes it edits (or creates) the key at the playhead — the
+ * same `set_channel_value` command agents use. The diamond toggles a key at the playhead.
+ */
+function AnimSlider({ path, label, min, max, step = 0.01, unit }: { path: string; label: string; min: number; max: number; step?: number; unit?: string }) {
+  const { t } = useTranslation()
+  const project = useEditor((s) => s.project)
+  const exec = useEditor((s) => s.exec)
+  const track = project.tracks.find((tr) => tr.path === path && tr.keyframes.length > 0)
+  const time = usePlayback((s) => (track ? s.time : 0))
+  const value = track ? sampleKeyframes(track.keyframes, time) : baseChannels(project)[path] ?? 0
+  const tol = 0.5 / project.settings.fps
+  const keyHere = !!track?.keyframes.some((k) => Math.abs(k.t - time) <= tol)
+  const now = () => usePlayback.getState().time
+  return (
+    <Slider
+      label={label} value={value} min={min} max={max} step={step} unit={unit}
+      onChange={(v) => exec('set_channel_value', { path, value: v, time: now() })}
+      extra={
+        <button
+          title={keyHere ? t('inspector.removeKey') : t('inspector.addKey')}
+          onClick={() =>
+            keyHere
+              ? exec('remove_keyframes', { path, time: now() })
+              : exec('set_keyframe', { path, time: now(), value, ease: 'easeInOut' })
+          }
+          className={clsx('flex h-5 w-5 shrink-0 items-center justify-center', track ? 'text-amber-400' : 'text-ink-600 hover:text-ink-300')}
+          data-testid={`key-${path}`}
+        >
+          <Diamond size={11} fill={keyHere ? 'currentColor' : 'none'} />
+        </button>
+      }
+    />
+  )
+}
+
+function TracksSection({ nodeId }: { nodeId: string }) {
+  const { t } = useTranslation()
+  const allTracks = useEditor((s) => s.project.tracks)
+  const exec = useEditor((s) => s.exec)
+  const tracks = allTracks.filter((tr) => tr.path.startsWith(`${nodeId}.`))
+  if (!tracks.length) return null
+  return (
+    <Section
+      title={t('inspector.tracks')}
+      actions={<Button variant="danger" className="h-6 px-2 text-xs" onClick={() => exec('remove_keyframes', { nodeId })}>{t('inspector.clearTracks')}</Button>}
+    >
+      {tracks.map((x) => (
+        <div key={x.id} className="flex justify-between text-xs">
+          <span className="font-mono text-ink-300">{x.path.slice(nodeId.length + 1)}</span>
+          <span className="text-ink-400">{x.keyframes.length} keys</span>
+        </div>
+      ))}
+    </Section>
+  )
+}
+
 function DeviceInspector({ id }: { id: string }) {
   const { t } = useTranslation()
   const node = useEditor((s) => s.project.nodes.find((n) => n.id === id)) as DeviceNode | undefined
-  const allTracks = useEditor((s) => s.project.tracks)
-  const tracks = allTracks.filter((tr) => tr.path.startsWith(`${id}.`))
   const assetName = useEditor((s) => (node?.screen.assetId ? s.project.assets[node.screen.assetId]?.name : null))
-  const update = useEditor((s) => s.update)
+  const deviceCount = useEditor((s) => s.project.nodes.filter((n) => n.type === 'device').length)
+  const exec = useEditor((s) => s.exec)
   if (!node) return null
-  const set = (fn: (d: DeviceNode) => void) =>
-    update((p) => {
-      const n = p.nodes.find((x) => x.id === id)
-      if (n?.type === 'device') fn(n)
-    })
-  const tr = node.transform
-  const axes = ['X', 'Y', 'Z'] as const
+  const axes = ['x', 'y', 'z'] as const
 
   return (
     <>
       <Section
         title={t('inspector.transform')}
-        actions={<Button className="h-6 px-2 text-xs" onClick={() => set((d) => { d.transform = { position: [0, 0, 0], rotation: [0, 0, 0], scale: 1 } })}>{t('inspector.reset')}</Button>}
+        actions={<Button className="h-6 px-2 text-xs" onClick={() => exec('set_device', { deviceId: id, position: [0, 0, 0], rotation: [0, 0, 0], scale: 1 })}>{t('inspector.reset')}</Button>}
       >
-        {axes.map((a, i) => (
-          <Slider key={`p${a}`} label={`${t('inspector.position')} ${a}`} value={tr.position[i]} min={-4} max={4} onChange={(v) => set((d) => { d.transform.position[i] = v })} />
+        {axes.map((a) => (
+          <AnimSlider key={`p${a}`} path={`${id}.position.${a}`} label={`${t('inspector.position')} ${a.toUpperCase()}`} min={-4} max={4} />
         ))}
-        {axes.map((a, i) => (
-          <Slider key={`r${a}`} label={`${t('inspector.rotation')} ${a}`} value={tr.rotation[i]} min={-180} max={180} step={1} unit="°" onChange={(v) => set((d) => { d.transform.rotation[i] = v })} />
+        {axes.map((a) => (
+          <AnimSlider key={`r${a}`} path={`${id}.rotation.${a}`} label={`${t('inspector.rotation')} ${a.toUpperCase()}`} min={-180} max={180} step={1} unit="°" />
         ))}
-        <Slider label={t('inspector.scale')} value={tr.scale} min={0.2} max={3} onChange={(v) => set((d) => { d.transform.scale = v })} />
+        <AnimSlider path={`${id}.scale`} label={t('inspector.scale')} min={0.2} max={3} />
       </Section>
 
       <Section title={t('inspector.screen')}>
@@ -146,66 +202,68 @@ function DeviceInspector({ id }: { id: string }) {
         <Segmented
           value={node.screen.fit}
           options={(['cover', 'contain', 'fill'] as ScreenFit[]).map((f) => ({ value: f, label: t(`inspector.${f}`) }))}
-          onChange={(f) => set((d) => { d.screen.fit = f })}
+          onChange={(f) => exec('set_screen', { deviceId: id, fit: f })}
         />
-        <Slider label={t('inspector.zoom')} value={node.screen.zoom} min={1} max={4} onChange={(v) => set((d) => { d.screen.zoom = v })} />
-        <Slider label={t('inspector.panX')} value={node.screen.panX} min={-0.5} max={0.5} onChange={(v) => set((d) => { d.screen.panX = v })} />
-        <Slider label={t('inspector.panY')} value={node.screen.panY} min={-0.5} max={0.5} onChange={(v) => set((d) => { d.screen.panY = v })} />
+        <AnimSlider path={`${id}.screen.zoom`} label={t('inspector.zoom')} min={1} max={4} />
+        <AnimSlider path={`${id}.screen.panX`} label={t('inspector.panX')} min={-0.5} max={0.5} />
+        <AnimSlider path={`${id}.screen.panY`} label={t('inspector.panY')} min={-0.5} max={0.5} />
       </Section>
 
-      {tracks.length > 0 && (
-        <Section
-          title={t('inspector.tracks')}
-          actions={
-            <Button variant="danger" className="h-6 px-2 text-xs" onClick={() => update((p) => { p.tracks = p.tracks.filter((x) => !x.path.startsWith(`${id}.`)) })}>
-              {t('inspector.clearTracks')}
-            </Button>
-          }
-        >
-          {tracks.map((x) => (
-            <div key={x.id} className="flex justify-between text-xs">
-              <span className="font-mono text-ink-300">{x.path.slice(id.length + 1)}</span>
-              <span className="text-ink-400">{x.keyframes.length} keys</span>
-            </div>
-          ))}
-        </Section>
+      <TracksSection nodeId={id} />
+      {deviceCount > 1 && (
+        <div className="p-3">
+          <Button variant="danger" className="w-full" onClick={() => exec('remove_device', { deviceId: id }) && useEditor.getState().select({ kind: 'scene' })}>
+            <Trash2 size={14} /> {t('inspector.removeDevice')}
+          </Button>
+        </div>
       )}
     </>
   )
 }
 
+const CAMERA_PATHS = ['camera.yaw', 'camera.pitch', 'camera.distance', 'camera.fov', 'camera.target.x', 'camera.target.y', 'camera.target.z']
+
 function CameraInspector() {
   const { t } = useTranslation()
-  const cam = useEditor((s) => s.project.nodes.find((n) => n.type === 'camera')) as CameraNode | undefined
-  const settings = useEditor((s) => s.project.settings)
-  const devId = useEditor((s) => firstDevice(s.project)?.deviceId)
-  const update = useEditor((s) => s.update)
-  if (!cam) return null
-  const set = (fn: (c: CameraNode) => void) =>
-    update((p) => {
-      const n = p.nodes.find((x) => x.type === 'camera')
-      if (n?.type === 'camera') fn(n)
-    })
+  const project = useEditor((s) => s.project)
+  const exec = useEditor((s) => s.exec)
+  const hasPath = project.tracks.some((tr) => tr.path.startsWith('camera.'))
+
+  /** Keys every camera channel at the playhead with its current value: the camera-journey workflow. */
+  const keyCamera = () => {
+    const time = usePlayback.getState().time
+    const current = useEditor.getState().project
+    const values = evaluateChannels(current, time)
+    const steps = CAMERA_PATHS.map((path) => ({ command: 'set_keyframe', args: { path, time, value: values[path], ease: 'product' } }))
+    useEditor.setState({ project: runBatch(current, steps).project })
+  }
+
   return (
-    <Section
-      title={t('inspector.camera')}
-      actions={
-        <Button className="h-6 px-2 text-xs" onClick={() => set((c) => {
-          c.target = [0, 0, 0]; c.yaw = 0; c.pitch = 0; c.fov = 30
-          c.distance = heroDistance(devId ?? 'phone-pro', settings.width / settings.height, 30)
-        })}>
-          <Crosshair size={12} /> {t('inspector.frameDevice')}
+    <>
+      <Section
+        title={t('inspector.camera')}
+        actions={
+          <Button className="h-6 px-2 text-xs" onClick={() => exec('frame_device', { reset: true })}>
+            <Crosshair size={12} /> {t('inspector.frameDevice')}
+          </Button>
+        }
+      >
+        <AnimSlider path="camera.yaw" label={t('inspector.yaw')} min={-180} max={180} step={1} unit="°" />
+        <AnimSlider path="camera.pitch" label={t('inspector.pitch')} min={-80} max={80} step={1} unit="°" />
+        <AnimSlider path="camera.distance" label={t('inspector.distance')} min={0.5} max={30} step={0.05} />
+        <AnimSlider path="camera.fov" label={t('inspector.fov')} min={10} max={80} step={1} unit="°" />
+        {(['x', 'y', 'z'] as const).map((a) => (
+          <AnimSlider key={a} path={`camera.target.${a}`} label={`${t('inspector.target')} ${a.toUpperCase()}`} min={-3} max={3} />
+        ))}
+      </Section>
+      <div className="space-y-2 p-3">
+        <Button variant="outline" className="w-full" onClick={keyCamera} data-testid="key-camera">
+          <Diamond size={13} /> {t('inspector.keyCamera')}
         </Button>
-      }
-    >
-      <Slider label={t('inspector.yaw')} value={cam.yaw} min={-180} max={180} step={1} unit="°" onChange={(v) => set((c) => { c.yaw = v })} />
-      <Slider label={t('inspector.pitch')} value={cam.pitch} min={-80} max={80} step={1} unit="°" onChange={(v) => set((c) => { c.pitch = v })} />
-      <Slider label={t('inspector.distance')} value={cam.distance} min={1} max={30} step={0.05} onChange={(v) => set((c) => { c.distance = v })} />
-      <Slider label={t('inspector.fov')} value={cam.fov} min={10} max={80} step={1} unit="°" onChange={(v) => set((c) => { c.fov = v })} />
-      {(['X', 'Y', 'Z'] as const).map((a, i) => (
-        <Slider key={a} label={`${t('inspector.target')} ${a}`} value={cam.target[i]} min={-3} max={3} onChange={(v) => set((c) => { c.target[i] = v })} />
-      ))}
-    </Section>
+        <p className="text-[11px] leading-relaxed text-ink-400">{hasPath ? t('inspector.pathHintActive') : t('inspector.pathHint')}</p>
+      </div>
+      <TracksSection nodeId="camera" />
+    </>
   )
 }
 

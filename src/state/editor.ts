@@ -1,9 +1,10 @@
 import { produce } from 'immer'
 import { temporal } from 'zundo'
 import { create } from 'zustand'
-import { bakeClip } from '@/core/animation/evaluate'
-import { createClip, createProject, uid } from '@/core/factory'
-import { getPreset } from '@/core/presets/registry'
+import { addAssetToProject } from '@/core/commands/assets'
+import { runCommand } from '@/core/commands'
+import { notify } from '@/ui/common/toast'
+import { createProject } from '@/core/factory'
 import type { Asset, Clip, DeviceNode, Project } from '@/core/schema/project'
 
 export type Selection =
@@ -19,6 +20,8 @@ interface EditorState {
   /** Immutable update through an immer draft; bumps updatedAt. */
   update(recipe: (draft: Project) => void): void
   select(s: Selection): void
+  /** Runs a core command (same API as agents). Errors become toasts; returns the result or null. */
+  exec(command: string, args?: unknown): Record<string, unknown> | null
   addAsset(asset: Asset, deviceId?: string): void
   addPresetClip(presetId: string, at: number): Clip | null
   updateClip(id: string, recipe: (c: Clip) => void): void
@@ -56,35 +59,28 @@ export const useEditor = create<EditorState>()(
 
       select: (selection) => set({ selection }),
 
+      exec: (command, args) => {
+        try {
+          const out = runCommand(get().project, command, args)
+          set({ project: out.project })
+          return out.result ?? {}
+        } catch (err) {
+          notify((err as Error).message, 'error')
+          return null
+        }
+      },
+
       addAsset: (asset, deviceId) =>
-        get().update((d) => {
-          d.assets[asset.id] = asset
-          const dev = d.nodes.find((n): n is DeviceNode => n.type === 'device' && (!deviceId || n.id === deviceId))
-          if (dev) dev.screen.assetId = asset.id
-          // A screen recording longer than the scene usually means the user wants to show it all.
-          if (asset.kind === 'video' && asset.duration && asset.duration > d.settings.duration) {
-            d.settings.duration = Math.min(60, Math.ceil(asset.duration * 10) / 10)
-          }
-        }),
+        set((s) => ({ project: addAssetToProject(s.project, asset, { deviceId }) })),
 
       addPresetClip: (presetId, at) => {
-        const preset = getPreset(presetId)
-        const { project, selection } = get()
-        if (!preset) return null
-        let target = 'camera'
-        if (preset.target === 'device') {
-          const selected = selection.kind === 'device' ? selection.id : null
-          target = selected ?? firstDevice(project)?.id ?? ''
-          if (!target) return null
-        }
-        const clip = createClip(presetId, target, Math.max(0, Math.min(at, project.settings.duration - 0.1)))
-        get().update((d) => {
-          d.clips.push(clip)
-          const end = clip.start + clip.duration
-          if (end > d.settings.duration) d.settings.duration = Math.ceil(end * 10) / 10
-        })
-        set({ selection: { kind: 'clip', id: clip.id } })
-        return clip
+        const { project, selection, exec } = get()
+        const target = selection.kind === 'device' ? selection.id : undefined
+        const start = Math.max(0, Math.min(at, project.settings.duration - 0.1))
+        const out = exec('add_motion', { preset: presetId, target, start })
+        if (!out?.clipId) return null
+        set({ selection: { kind: 'clip', id: String(out.clipId) } })
+        return get().project.clips.find((c) => c.id === out.clipId) ?? null
       },
 
       updateClip: (id, recipe) =>
@@ -101,14 +97,7 @@ export const useEditor = create<EditorState>()(
       },
 
       bake: (id) => {
-        const tracks = bakeClip(get().project, id, uid)
-        get().update((d) => {
-          // A baked channel replaces any older track on the same path.
-          const paths = new Set(tracks.map((t) => t.path))
-          d.tracks = d.tracks.filter((t) => !paths.has(t.path)).concat(tracks)
-          d.clips = d.clips.filter((c) => c.id !== id)
-        })
-        set({ selection: { kind: 'scene' } })
+        if (get().exec('bake_motion', { clipId: id })) set({ selection: { kind: 'scene' } })
       },
     }),
     {

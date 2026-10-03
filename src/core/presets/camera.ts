@@ -1,7 +1,5 @@
 import { keys } from '../animation/keyframes'
-import { distanceToFit } from '../camera/rig'
-import { applyTransform, rotateXYZ, type Vec3 } from '../math'
-import { screenSurfaceZ } from '../devices/registry'
+import { frameScreenRegion } from '../camera/framing'
 import { easeParam } from './common'
 import { bool, num, str, type Preset, type PresetCurve } from './types'
 
@@ -87,21 +85,10 @@ export const screenFocus: Preset = {
   ],
   build(p, ctx) {
     if (!ctx.device) return []
-    const { spec, position, rotation, scale } = ctx.device
     const e = str(p, 'ease')
-    const size = num(p, 'size', 0.4)
     const face = num(p, 'face', 1)
-    const fx = num(p, 'focusX', 0.5), fy = num(p, 'focusY', 0.35)
-
-    const local: Vec3 = [(fx - 0.5) * spec.screen.width, (0.5 - fy) * spec.screen.height, screenSurfaceZ(spec)]
-    const world = applyTransform(local, position, rotation, scale)
-    const normal = rotateXYZ([0, 0, 1], rotation)
-    const faceYaw = (Math.atan2(normal[0], normal[2]) * 180) / Math.PI
-    const facePitch = (Math.asin(Math.max(-1, Math.min(1, normal[1]))) * 180) / Math.PI
-
-    const rectH = spec.screen.height * size * scale
-    const rectW = rectH * (spec.screen.width / spec.screen.height)
-    const dist = distanceToFit(rectH, rectW, ctx.camera.fov, ctx.aspect, 0.9)
+    const region = { x: num(p, 'focusX', 0.5), y: num(p, 'focusY', 0.35), size: num(p, 'size', 0.6) }
+    const goal = frameScreenRegion(ctx.device, region, ctx.camera, ctx.aspect, face)
 
     const release = bool(p, 'release', true)
     const curve = (v: number) =>
@@ -110,15 +97,15 @@ export const screenFocus: Preset = {
         : keys([{ u: 0, v: 0 }, { u: 0.5, v }], e)
 
     const out: PresetCurve[] = [
-      { channel: 'target.x', mode: 'offset', sample: curve(world[0] - ctx.camera.target[0]) },
-      { channel: 'target.y', mode: 'offset', sample: curve(world[1] - ctx.camera.target[1]) },
-      { channel: 'target.z', mode: 'offset', sample: curve(world[2] - ctx.camera.target[2]) },
-      { channel: 'distance', mode: 'offset', sample: curve(dist - ctx.camera.distance) },
+      { channel: 'target.x', mode: 'offset', sample: curve(goal.target[0] - ctx.camera.target[0]) },
+      { channel: 'target.y', mode: 'offset', sample: curve(goal.target[1] - ctx.camera.target[1]) },
+      { channel: 'target.z', mode: 'offset', sample: curve(goal.target[2] - ctx.camera.target[2]) },
+      { channel: 'distance', mode: 'offset', sample: curve(goal.distance - ctx.camera.distance) },
     ]
     if (face > 0) {
       out.push(
-        { channel: 'yaw', mode: 'offset', sample: curve((faceYaw - ctx.camera.yaw) * face) },
-        { channel: 'pitch', mode: 'offset', sample: curve((facePitch - ctx.camera.pitch) * face) },
+        { channel: 'yaw', mode: 'offset', sample: curve(goal.yaw - ctx.camera.yaw) },
+        { channel: 'pitch', mode: 'offset', sample: curve(goal.pitch - ctx.camera.pitch) },
       )
     }
     return out

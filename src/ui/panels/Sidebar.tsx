@@ -3,15 +3,17 @@ import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ArrowRightFromLine, Focus, Hand, Image as ImageIcon, Move3d, Orbit, Plane, RefreshCw,
-  Rocket, Smartphone, Upload, Video, Waves, ZoomIn, ZoomOut, type LucideIcon,
+  Plus, Rocket, Smartphone, Sparkles, Upload, Video, Waves, ZoomIn, ZoomOut, type LucideIcon,
 } from 'lucide-react'
 import { DEVICES, getDevice } from '@/core/devices/registry'
 import { PRESETS } from '@/core/presets/registry'
 import type { Preset } from '@/core/presets/types'
 import type { Asset, DeviceNode } from '@/core/schema/project'
-import { ACCEPTED, importMedia } from '@/media/import'
+import { ACCEPTED } from '@/media/import'
+import { backend } from '@/media/backend'
 import { firstDevice, useEditor } from '@/state/editor'
-import { usePlayback } from '@/state/playback'
+import { cueProject, usePlayback } from '@/state/playback'
+import { TEMPLATES } from '@/core/commands/templates'
 import { notify } from '../common/toast'
 import { useBlobUrl } from '../common/useBlobUrl'
 
@@ -106,6 +108,17 @@ function DevicePanel() {
         </div>
         <p className="mt-2 text-xs text-ink-400">{spec.finishes.find((f) => f.id === device.finishId)?.name}</p>
       </div>
+      <button
+        onClick={() => {
+          const s = useEditor.getState()
+          const count = s.project.nodes.filter((n) => n.type === 'device').length
+          const out = s.exec('add_device', { model: device.deviceId, position: [count % 2 ? 1.25 * Math.ceil(count / 2) : -1.25 * Math.ceil(count / 2), 0, -0.3] })
+          if (out?.deviceId) s.select({ kind: 'device', id: String(out.deviceId) })
+        }}
+        className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-ink-600 py-2 text-xs text-ink-300 hover:border-accent hover:text-white"
+      >
+        <Plus size={13} /> {t('device.add')}
+      </button>
     </div>
   )
 }
@@ -133,7 +146,7 @@ function MediaPanel() {
     if (!files?.length) return
     setBusy(true)
     try {
-      for (const f of Array.from(files)) addAsset(await importMedia(f), device?.id)
+      for (const f of Array.from(files)) addAsset(await backend.importFile(useEditor.getState().project.id, f), device?.id)
     } catch (err) {
       notify((err as Error).message, 'error')
     } finally {
@@ -217,6 +230,27 @@ function MotionPanel() {
   const categories: Preset['category'][] = ['entrance', 'camera', 'emphasis', 'loop']
   return (
     <div className="space-y-4 p-3">
+      <div>
+        <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-400">{t('motion.templates')}</h3>
+        <div className="space-y-1.5">
+          {TEMPLATES.map((tpl) => (
+            <button
+              key={tpl.id}
+              onClick={() => {
+                if (useEditor.getState().exec('apply_template', { template: tpl.id })) cueProject(useEditor.getState().project)
+              }}
+              className="flex w-full items-start gap-2.5 rounded-lg border border-ink-700 bg-ink-850 p-2.5 text-left transition-colors hover:border-accent hover:bg-accent-soft"
+              data-testid={`template-${tpl.id}`}
+            >
+              <Sparkles size={15} className="mt-0.5 shrink-0 text-accent" />
+              <span>
+                <span className="block text-xs font-medium">{tpl.name}</span>
+                <span className="block text-[11px] leading-snug text-ink-400">{tpl.description}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
       <p className="text-xs leading-relaxed text-ink-400">{t('motion.hint')}</p>
       {categories.map((cat) => (
         <div key={cat}>

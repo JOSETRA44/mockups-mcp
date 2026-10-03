@@ -1,13 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ImagePlus } from 'lucide-react'
+import { baseChannels } from '@/core/animation/channels'
 import { evaluate } from '@/core/animation/evaluate'
+import { sampleKeyframes } from '@/core/animation/keyframes'
 import { Engine } from '@/engine/Engine'
 import { AssetSourceProvider } from '@/engine/sources/sources'
-import { importMedia } from '@/media/import'
+import { backend } from '@/media/backend'
 import { firstDevice, useEditor } from '@/state/editor'
 import { usePlayback } from '@/state/playback'
 import { notify } from './common/toast'
+
+/** Value a slider would show for a channel: keyframed value at the playhead, else the rest value. */
+function channelValue(path: string) {
+  const project = useEditor.getState().project
+  const track = project.tracks.find((t) => t.path === path && t.keyframes.length)
+  return track ? sampleKeyframes(track.keyframes, usePlayback.getState().time) : baseChannels(project)[path] ?? 0
+}
+
+/** Adds `delta` to a channel through the same auto-key command the inspector uses. */
+function nudge(path: string, delta: number) {
+  useEditor.getState().exec('set_channel_value', { path, value: channelValue(path) + delta, time: usePlayback.getState().time })
+}
 
 /**
  * Real-time preview. Each animation frame: advance the playhead, evaluate the document
@@ -102,28 +116,33 @@ export function Viewport() {
     const dx = e.clientX - d.x, dy = e.clientY - d.y
     d.x = e.clientX
     d.y = e.clientY
-    const { update, selection, project, select } = useEditor.getState()
+    const { selection, project, select } = useEditor.getState()
+    if (selection.kind === 'camera') {
+      // Camera selected: orbit (drag) or pan the target (shift-drag) — builds camera journeys.
+      if (d.shift) {
+        const k = 0.004
+        nudge('camera.target.x', -dx * k)
+        nudge('camera.target.y', dy * k)
+      } else {
+        nudge('camera.yaw', -dx * 0.3)
+        nudge('camera.pitch', dy * 0.3)
+      }
+      return
+    }
     const devId = selection.kind === 'device' ? selection.id : firstDevice(project)?.id
     if (!devId) return
     if (selection.kind !== 'device') select({ kind: 'device', id: devId })
-    update((p) => {
-      const dev = p.nodes.find((n) => n.id === devId)
-      if (dev?.type !== 'device') return
-      if (d.shift) {
-        const k = 0.006
-        dev.transform.position[0] += dx * k
-        dev.transform.position[1] -= dy * k
-      } else {
-        dev.transform.rotation[1] += dx * 0.4
-        dev.transform.rotation[0] += dy * 0.4
-      }
-    })
+    if (d.shift) {
+      nudge(`${devId}.position.x`, dx * 0.006)
+      nudge(`${devId}.position.y`, -dy * 0.006)
+    } else {
+      nudge(`${devId}.rotation.y`, dx * 0.4)
+      nudge(`${devId}.rotation.x`, dy * 0.4)
+    }
   }
   const onWheel = (e: React.WheelEvent) => {
-    useEditor.getState().update((p) => {
-      const cam = p.nodes.find((n) => n.type === 'camera')
-      if (cam?.type === 'camera') cam.distance = Math.max(1, Math.min(40, cam.distance * (1 + e.deltaY * 0.001)))
-    })
+    const current = channelValue('camera.distance')
+    nudge('camera.distance', Math.max(0.5, Math.min(40, current * (1 + e.deltaY * 0.001))) - current)
   }
 
   const onDrop = async (e: React.DragEvent) => {
@@ -132,7 +151,7 @@ export function Viewport() {
     const file = e.dataTransfer.files[0]
     if (!file) return
     try {
-      useEditor.getState().addAsset(await importMedia(file))
+      useEditor.getState().addAsset(await backend.importFile(useEditor.getState().project.id, file))
     } catch (err) {
       notify((err as Error).message, 'error')
     }

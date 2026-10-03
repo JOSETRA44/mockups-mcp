@@ -28,8 +28,8 @@ export function Row({ label, children }: { label: string; children: ReactNode })
 }
 
 export function Slider({
-  label, value, min, max, step = 0.01, unit, onChange,
-}: { label: string; value: number; min: number; max: number; step?: number; unit?: string; onChange: (v: number) => void }) {
+  label, value, min, max, step = 0.01, unit, onChange, extra,
+}: { label: string; value: number; min: number; max: number; step?: number; unit?: string; onChange: (v: number) => void; extra?: ReactNode }) {
   const decimals = step >= 1 ? 0 : step >= 0.1 ? 1 : 2
   return (
     <Row label={label}>
@@ -47,6 +47,7 @@ export function Slider({
           />
           {unit && <span className="pl-0.5 text-ink-400">{unit}</span>}
         </div>
+        {extra}
       </div>
     </Row>
   )

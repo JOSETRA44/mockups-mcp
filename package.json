@@ -10,9 +10,14 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "serve": "node bin/unicali.mjs serve",
+    "serve:dev": "node bin/unicali.mjs serve --dev",
+    "mcp": "node bin/unicali.mjs mcp",
+    "unicali": "node bin/unicali.mjs"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.0",
     "clsx": "^2.1.1",
     "dexie": "^4.4.6",
     "fflate": "^0.8.3",
@@ -20,10 +25,13 @@
     "immer": "^11.1.21",
     "lucide-react": "^1.51.0",
     "mediabunny": "^1.61.0",
+    "playwright-core": "^1.63.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-i18next": "^17.0.15",
     "three": "^0.186.1",
+    "tsx": "^4.23.15",
+    "ws": "^8.22.0",
     "zod": "^4.6.5",
     "zundo": "^2.3.0",
     "zustand": "^5.0.15"
@@ -35,11 +43,15 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@types/three": "^0.186.0",
+    "@types/ws": "^8.18.2",
     "@vitejs/plugin-react": "^6.1.1",
     "oxlint": "^1.81.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.2",
     "vite": "^8.3.0",
     "vitest": "^5.0.3"
+  },
+  "bin": {
+    "unicali": "bin/unicali.mjs"
   }
 }

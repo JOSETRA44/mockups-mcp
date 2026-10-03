@@ -5,13 +5,14 @@ const en = {
     delete: 'Delete', noProjects: 'No saved projects yet', saved: 'Saved locally',
   },
   sidebar: { device: 'Device', media: 'Media', motion: 'Motion' },
-  device: { model: 'Model', finish: 'Finish' },
+  device: { model: 'Model', finish: 'Finish', add: 'Add another device' },
   media: {
     drop: 'Drop a screenshot or screen recording', browse: 'or click to browse',
     formats: 'PNG, JPG, WebP, MP4, WebM, MOV', library: 'Library', use: 'Use on device',
     importing: 'Importing…', inUse: 'On screen',
   },
   motion: {
+    templates: 'Templates',
     hint: 'Click a motion to add it at the playhead. Motions stack, so combine an entrance with a camera move.',
     categories: { entrance: 'Entrances', camera: 'Camera', emphasis: 'Emphasis', loop: 'Loops' },
   },
@@ -28,7 +29,15 @@ const en = {
     clip: 'Motion', start: 'Start', length: 'Length', bake: 'Convert to keyframes',
     bakeHint: 'Turns this motion into editable keyframes (advanced).', remove: 'Remove',
     focusPick: 'Drag on the screen to choose what to zoom into',
-    tracks: 'Keyframe tracks', clearTracks: 'Clear keyframes',
+    tracks: 'Keyframe tracks', clearTracks: 'Clear keyframes', addKey: 'Add keyframe at playhead', removeKey: 'Remove keyframe',
+    keyCamera: 'Key camera here', removeDevice: 'Remove device',
+    pathHint: 'Camera journey: move the playhead, frame a shot (sliders, scroll, drag) and press "Key camera here". Repeat for each shot.',
+    pathHintActive: 'Camera path active: sliders now edit the keyframe at the playhead.',
+  },
+  sync: {
+    local: 'Saved in this browser', live: 'Live · workspace', offline: 'Reconnecting…', agent: 'Agent editing',
+    localHint: 'Projects are stored in this browser (IndexedDB). Run "npm run serve" to share them with agents.',
+    remoteHint: 'Connected to a Unicali server: changes are saved to the workspace folder and agents (MCP/CLI) edit live.',
   },
   timeline: { play: 'Play', pause: 'Pause', loop: 'Loop', camera: 'Camera', keyframes: 'Keyframes' },
   export: {

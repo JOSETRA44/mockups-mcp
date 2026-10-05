@@ -10,6 +10,7 @@ import {
   catalog, commandSchemas, CommandError, describeProject, runBatch, runCommand, sampleScene,
 } from '../src/core/commands'
 import { uid } from '../src/core/factory'
+import { shotHoldTimes } from '../src/core/shots/shots'
 import { APP_ROOT, baseUrl, VERSION, type ServerConfig } from './config'
 import { MEDIA_TYPES } from './probe'
 import { Renderer, type ExportRequest } from './renderer'
@@ -86,6 +87,7 @@ export async function startServer(config: ServerConfig): Promise<UnicaliServer> 
   await workspace.init()
   const url = baseUrl(config)
   const renderer = new Renderer(url)
+  workspace.enrich = (assetId, kind) => renderer.analyze(assetId, kind)
   const uploads = new Map<string, { path: string; done: (err?: Error) => void }>()
 
   const http = createServer((req, res) => {
@@ -197,7 +199,11 @@ export async function startServer(config: ServerConfig): Promise<UnicaliServer> 
         case 'commands': {
           const out = await workspace.exec(
             id,
-            (p, ctx) => (Array.isArray(body.batch) ? runBatch(p, body.batch, ctx) : runCommand(p, String(body.command), body.args, ctx)),
+            (p, ctx) => {
+              if (!Array.isArray(body.batch)) return runCommand(p, String(body.command), body.args, ctx)
+              const out = runBatch(p, body.batch, ctx)
+              return { project: out.project, result: { results: out.results } }
+            },
             origin,
           )
           const r = out.result as { results?: unknown } | undefined
@@ -217,11 +223,13 @@ export async function startServer(config: ServerConfig): Promise<UnicaliServer> 
           // Import a file from the local disk (server and caller share the machine).
           if (typeof body.path !== 'string') throw new HttpError(400, 'INVALID_ARGS', 'path (absolute local file path) is required')
           const out = await workspace.importMedia(id, resolve(body.path), { deviceId: body.deviceId, assign: body.assign, name: body.name }, origin)
-          return send(res, 200, { asset: out.asset, revision: out.revision })
+          return send(res, 200, { asset: out.asset, analysis: out.analysis, revision: out.revision })
         }
         case 'frames': {
           const { project } = await workspace.get(id)
-          const times: number[] = Array.isArray(body.times) && body.times.length ? body.times.map(Number) : [project.settings.duration / 2]
+          const times: number[] = Array.isArray(body.times) && body.times.length
+            ? body.times.map(Number)
+            : project.shots.length ? shotHoldTimes(project.shots).slice(0, 24) : [project.settings.duration / 2]
           if (times.length > 24) throw new HttpError(400, 'INVALID_ARGS', 'At most 24 times per contact sheet')
           const png = await renderer.frames(id, {
             times,

@@ -108,6 +108,16 @@ export const Clip = z.object({
   params: z.record(z.string(), ParamValue),
 })
 
+/** A region of a device screen in UV (0..1 from the top-left). */
+export const ScreenRegion = z.object({
+  x: z.number(),
+  y: z.number(),
+  /** Height as a fraction of the screen height. */
+  size: z.number(),
+  /** Width as a fraction of the screen width (defaults to size). */
+  w: z.number().optional(),
+})
+
 export const Asset = z.object({
   id: z.string(),
   kind: z.enum(['image', 'video', 'audio']),
@@ -119,16 +129,8 @@ export const Asset = z.object({
   hasAudio: z.boolean().optional(),
   /** Dominant colours of an image/video (hex), used by "match media" looks. */
   palette: z.array(z.string()).optional(),
-})
-
-/** A region of a device screen in UV (0..1 from the top-left). */
-export const ScreenRegion = z.object({
-  x: z.number(),
-  y: z.number(),
-  /** Height as a fraction of the screen height. */
-  size: z.number(),
-  /** Width as a fraction of the screen width (defaults to size). */
-  w: z.number().optional(),
+  /** UI blocks detected in the screenshot (cards, buttons), top to bottom: storyboard targets. */
+  regions: z.array(ScreenRegion).optional(),
 })
 
 export const ShotKind = z.enum(['hero', 'focus', 'angle', 'wide', 'orbit'])

@@ -3,6 +3,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 import { COMMANDS } from '../src/core/commands'
 import { TEMPLATES } from '../src/core/commands/templates'
+import { shotHoldTimes } from '../src/core/shots/shots'
 import { VERSION } from './config'
 import { connect, type UnicaliClient } from './client'
 
@@ -119,7 +120,8 @@ export async function runMcpServer() {
   mcp.registerTool('import_media', {
     title: 'Import local media',
     description:
-      'Copies a local screenshot or screen recording (png, jpg, webp, gif, mp4, mov, webm) into the project and, by default, puts it on the device screen. ' +
+      'Copies a local file into the project. Screenshots/recordings (png, jpg, webp, gif, mp4, mov, webm) go on the device screen (a colour palette is extracted for apply_look "match-media"); ' +
+      'songs (mp3, wav, m4a, aac, ogg, flac) become the music track and are analysed: tempo, bars and energy sections come back so you can plan shots on the music. ' +
       'Video longer than the scene extends the duration. Returns the assetId.',
     inputSchema: {
       projectId,
@@ -129,7 +131,14 @@ export async function runMcpServer() {
     },
   }, safe(async (a: { projectId?: string; path: string; deviceId?: string; assign?: boolean }) => {
     const id = await pid(a.projectId)
-    return [text(await client.importFile(id, a.path, { deviceId: a.deviceId, assign: a.assign }))]
+    const out = await client.importFile(id, a.path, { deviceId: a.deviceId, assign: a.assign }) as Record<string, any>
+    // Keep the reply small: tempo and sections are what an agent plans with.
+    const an = out.analysis
+    return [text({
+      asset: out.asset,
+      revision: out.revision,
+      ...(an ? { music: { bpm: an.bpm, barSeconds: +(240 / an.bpm).toFixed(3), bars: an.bars.length, sections: an.sections } } : {}),
+    })]
   }))
 
   // ---- Editing: one tool per core command (generated, so new commands appear automatically)
@@ -183,7 +192,7 @@ export async function runMcpServer() {
     title: 'Render frames (see the result)',
     description:
       'Renders frames with the real engine in headless Chrome and returns them as one contact-sheet image (labelled with times). ' +
-      'Default: 6 frames evenly spread over the scene. Use this to visually verify framing and motion before exporting.',
+      'Default: one frame per shot at its settled moment (or 6 evenly spread frames without shots). Use this to visually verify framing and motion before exporting.',
     inputSchema: {
       projectId,
       times: z.array(z.number().min(0)).max(24).optional().describe('Seconds; default 6 evenly spaced'),
@@ -196,7 +205,10 @@ export async function runMcpServer() {
     const id = await pid(a.projectId)
     const { project } = await client.getProject(id)
     const d = project.settings.duration
-    const times = a.times?.length ? a.times : Array.from({ length: 6 }, (_, i) => +((d * (i + 0.5)) / 6).toFixed(2))
+    // Default: each shot's settled moment (what the viewer actually sees), else 6 even samples.
+    const times = a.times?.length ? a.times
+      : project.shots.length ? shotHoldTimes(project.shots).slice(0, 12)
+      : Array.from({ length: 6 }, (_, i) => +((d * (i + 0.5)) / 6).toFixed(2))
     const png = await client.frames(id, { times, width: a.width ?? (times.length > 1 ? 320 : 720), columns: a.columns ?? Math.min(6, times.length), outputPath: a.outputPath })
     return [
       { type: 'image', data: png.toString('base64'), mimeType: 'image/png' },

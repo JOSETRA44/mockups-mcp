@@ -27,7 +27,9 @@ function applyRemote(project: Project) {
     const sel = s.selection
     const gone =
       (sel.kind === 'clip' && !project.clips.some((c) => c.id === sel.id)) ||
-      (sel.kind === 'device' && !project.nodes.some((n) => n.id === sel.id))
+      (sel.kind === 'device' && !project.nodes.some((n) => n.id === sel.id)) ||
+      (sel.kind === 'shot' && !project.shots.some((x) => x.id === sel.id)) ||
+      (sel.kind === 'music' && !project.music)
     return { project, selection: gone ? { kind: 'scene' } : sel }
   })
   temporal.resume()

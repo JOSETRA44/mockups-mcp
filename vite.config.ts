@@ -22,7 +22,8 @@ export default defineConfig({
   },
   server: {
     // `npm run dev` talks to a running `npm run serve` for the agent/live-sync API.
-    proxy: { '/api': { target: 'http://127.0.0.1:5299', ws: true } },
+    // UNICALI_API overrides the target; "off" disables it (tests stay local and hermetic).
+    proxy: process.env.UNICALI_API === 'off' ? undefined : { '/api': { target: process.env.UNICALI_API ?? 'http://127.0.0.1:5299', ws: true } },
   },
   test: {
     include: ['src/**/*.test.ts'],

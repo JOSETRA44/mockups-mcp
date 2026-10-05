@@ -14,7 +14,7 @@ export function notify(message: string, tone: Toast['tone'] = 'info') {
 export function Toasts() {
   const toasts = useToasts((s) => s.toasts)
   return (
-    <div className="pointer-events-none fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 flex-col gap-2">
+    <div className="pointer-events-none fixed left-1/2 top-14 z-50 flex -translate-x-1/2 flex-col items-center gap-2">
       {toasts.map((t) => (
         <div
           key={t.id}

@@ -95,6 +95,14 @@ export class Renderer {
     )
   }
 
+  /** Palette (images/videos) or beat analysis (songs) for a stored asset, computed in Chrome. */
+  async analyze(assetId: string, kind: 'image' | 'video' | 'audio') {
+    return this.run(
+      (page) => page.evaluate(([id, k]) => (window as any).unicaliRender.analyze(id, k), [assetId, kind] as const) as Promise<{ palette?: string[]; regions?: import('../src/core/schema/project').ScreenRegion[]; analysis?: import('../src/core/schema/project').MusicAnalysis }>,
+      120_000,
+    )
+  }
+
   async close() {
     const b = await this.browser?.catch(() => null)
     this.browser = null

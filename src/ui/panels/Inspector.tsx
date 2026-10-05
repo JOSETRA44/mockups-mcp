@@ -1,5 +1,4 @@
 import clsx from 'clsx'
-import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Crosshair, Diamond, KeyRound, Trash2 } from 'lucide-react'
 import { baseChannels } from '@/core/animation/channels'
@@ -7,13 +6,14 @@ import { evaluateChannels } from '@/core/animation/evaluate'
 import { sampleKeyframes } from '@/core/animation/keyframes'
 import { runBatch } from '@/core/commands'
 import { usePlayback } from '@/state/playback'
+import { LooksSection, MusicInspector, ShotInspector, useEaseOptions } from './StoryInspectors'
+import { ScreenRegionPicker } from './ScreenRegionPicker'
 import { FORMATS, heroDistance } from '@/core/factory'
 import { getPreset } from '@/core/presets/registry'
 import type { ParamSpec } from '@/core/presets/types'
 import type { CameraNode, Clip, DeviceNode, Lighting, Project, ScreenFit } from '@/core/schema/project'
 import { firstDevice, useEditor, type Selection } from '@/state/editor'
 import { Button, ColorInput, Section, Segmented, Select, Slider, Toggle } from '../common/controls'
-import { useBlobUrl } from '../common/useBlobUrl'
 
 export function Inspector() {
   const { t } = useTranslation()
@@ -23,7 +23,7 @@ export function Inspector() {
   const tabs: { label: string; sel: Selection; active: boolean }[] = [
     { label: t('inspector.scene'), sel: { kind: 'scene' }, active: selection.kind === 'scene' },
     { label: t('sidebar.device'), sel: { kind: 'device', id: devId ?? '' }, active: selection.kind === 'device' },
-    { label: t('inspector.camera'), sel: { kind: 'camera' }, active: selection.kind === 'camera' },
+    { label: t('inspector.camera'), sel: { kind: 'camera' }, active: selection.kind === 'camera' || selection.kind === 'shot' },
   ]
   return (
     <aside className="flex w-[300px] shrink-0 flex-col border-l border-ink-700 bg-ink-900">
@@ -43,6 +43,8 @@ export function Inspector() {
         {selection.kind === 'device' && <DeviceInspector id={selection.id} />}
         {selection.kind === 'camera' && <CameraInspector />}
         {selection.kind === 'clip' && <ClipInspector id={selection.id} />}
+        {selection.kind === 'shot' && <ShotInspector id={selection.id} />}
+        {selection.kind === 'music' && <MusicInspector />}
       </div>
     </aside>
   )
@@ -59,6 +61,7 @@ function SceneInspector() {
 
   return (
     <>
+      <LooksSection />
       <Section title={t('inspector.format')}>
         <Select
           label={t('inspector.format')}
@@ -302,48 +305,24 @@ function ClipInspector({ id }: { id: string }) {
 
 /** Generic control for one preset parameter: presets never need custom UI code. */
 function ParamControl({ spec, value, onChange }: { spec: ParamSpec; value: unknown; onChange: (v: number | string | boolean) => void }) {
+  const easeOptions = useEaseOptions()
   if (spec.type === 'number') {
     return <Slider label={spec.label} value={Number(value)} min={spec.min} max={spec.max} step={spec.step} unit={spec.unit} onChange={onChange} />
   }
   if (spec.type === 'boolean') return <Toggle label={spec.label} value={Boolean(value)} onChange={onChange} />
-  return <Select label={spec.label} value={String(value)} options={spec.options} onChange={onChange} />
+  return <Select label={spec.label} value={String(value)} options={spec.key === 'ease' ? easeOptions : spec.options} onChange={onChange} />
 }
 
-/** Click/drag on a miniature of the screen to choose the Screen Focus region. */
+/** Screen Focus motion: the shared region picker, bound to the clip params. */
 function FocusPicker({ clip }: { clip: Clip }) {
-  const { t } = useTranslation()
-  const project = useEditor((s) => s.project)
   const updateClip = useEditor((s) => s.updateClip)
-  const ref = useRef<HTMLDivElement>(null)
-  const dev = project.nodes.find((n): n is DeviceNode => n.type === 'device' && n.id === clip.target) ?? firstDevice(project)
-  const asset = dev?.screen.assetId ? project.assets[dev.screen.assetId] : null
-  const url = useBlobUrl(asset?.id)
-  const fx = Number(clip.params.focusX ?? 0.5), fy = Number(clip.params.focusY ?? 0.35), size = Number(clip.params.size ?? 0.6), w = Number(clip.params.width ?? size)
-
-  const pick = (e: React.PointerEvent) => {
-    const r = ref.current!.getBoundingClientRect()
-    const x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width))
-    const y = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))
-    updateClip(clip.id, (c) => { c.params.focusX = +x.toFixed(3); c.params.focusY = +y.toFixed(3) })
-  }
-
+  const size = Number(clip.params.size ?? 0.6)
+  const region = { x: Number(clip.params.focusX ?? 0.5), y: Number(clip.params.focusY ?? 0.35), size, w: Number(clip.params.width ?? size) }
   return (
-    <div className="space-y-1.5">
-      <div
-        ref={ref}
-        className="relative mx-auto aspect-[9/19.5] w-[120px] cursor-crosshair overflow-hidden rounded-[14px] border-2 border-ink-600 bg-ink-950"
-        onPointerDown={(e) => { (e.target as HTMLElement).setPointerCapture(e.pointerId); pick(e) }}
-        onPointerMove={(e) => e.buttons && pick(e)}
-      >
-        {url && asset && (asset.kind === 'image'
-          ? <img src={url} alt="" className={`pointer-events-none h-full w-full ${dev?.screen.fit === 'contain' ? 'object-contain' : dev?.screen.fit === 'fill' ? 'object-fill' : 'object-cover'}`} draggable={false} />
-          : <video src={`${url}#t=0.1`} muted className="pointer-events-none h-full w-full object-cover" />)}
-        <div
-          className="pointer-events-none absolute rounded border-2 border-accent bg-accent/15 shadow-[0_0_0_999px_rgba(0,0,0,0.45)]"
-          style={{ width: `${w * 100}%`, height: `${size * 100}%`, left: `${(fx - w / 2) * 100}%`, top: `${(fy - size / 2) * 100}%` }}
-        />
-      </div>
-      <p className="text-center text-[11px] text-ink-400">{t('inspector.focusPick')}</p>
-    </div>
+    <ScreenRegionPicker
+      deviceId={clip.target}
+      region={region}
+      onChange={(r) => updateClip(clip.id, (c) => { c.params.focusX = r.x; c.params.focusY = r.y })}
+    />
   )
 }

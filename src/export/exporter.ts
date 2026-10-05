@@ -1,14 +1,13 @@
 import {
-  ALL_FORMATS, BlobSource, BufferTarget, CanvasSource, EncodedAudioPacketSource, EncodedPacketSink,
-  Input, Mp4OutputFormat, Output, Quality, StreamTarget, WebMOutputFormat, canEncodeVideo,
-  type Target, type VideoCodec,
+  AudioBufferSource, BufferTarget, CanvasSource, Mp4OutputFormat, Output, Quality, StreamTarget, WebMOutputFormat,
+  canEncodeAudio, canEncodeVideo, type AudioCodec, type Target, type VideoCodec,
 } from 'mediabunny'
 import { Zip, ZipPassThrough } from 'fflate'
 import { evaluate } from '@/core/animation/evaluate'
 import type { Project } from '@/core/schema/project'
 import { Engine } from '@/engine/Engine'
 import { AssetSourceProvider } from '@/engine/sources/sources'
-import { getBlob } from '@/media/assetStore'
+import { mixdown } from '@/media/audio'
 
 export type ExportFormat = 'mp4' | 'webm' | 'png'
 export type ExportQuality = 'standard' | 'high' | 'max'
@@ -142,7 +141,7 @@ export async function exportProject(project: Project, opts: ExportOptions, cb: E
       alpha: keepAlpha ? 'keep' : 'discard',
     })
     output.addVideoTrack(video, { frameRate: fps, canBeTransparent: keepAlpha })
-    const audio = opts.includeAudio ? await prepareAudio(project, usedAssets, output, format, duration) : null
+    const audio = await prepareSoundtrack(project, output, opts.format, opts.includeAudio)
 
     await output.start()
     // Audio is fed concurrently: the muxer interleaves tracks and applies backpressure.
@@ -162,8 +161,6 @@ export async function exportProject(project: Project, opts: ExportOptions, cb: E
       await output.cancel().catch(() => {})
       await writable?.abort().catch(() => {})
       throw err
-    } finally {
-      audio?.dispose()
     }
 
     const blob = target instanceof BufferTarget && target.buffer ? new Blob([target.buffer], { type: format.mimeType }) : null
@@ -180,38 +177,26 @@ export async function exportProject(project: Project, opts: ExportOptions, cb: E
   }
 }
 
-/** Copies (no re-encode) the screen recording's audio when the container supports its codec. */
-async function prepareAudio(
-  project: Project,
-  usedAssets: Set<string>,
-  output: Output,
-  format: Mp4OutputFormat | WebMOutputFormat,
-  duration: number,
-) {
-  const assetId = [...usedAssets].find((id) => project.assets[id]?.kind === 'video' && project.assets[id]?.hasAudio)
-  const blob = assetId ? await getBlob(assetId) : null
-  if (!blob) return null
-  const input = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS })
-  const track = await input.getPrimaryAudioTrack()
-  const codec = track?.codec
-  if (!track || !codec || !format.getSupportedAudioCodecs().includes(codec)) {
-    input.dispose()
+/**
+ * The soundtrack: the song (offset, volume, fades) mixed with screen-recording audio, rendered
+ * offline and encoded (AAC in MP4, Opus in WebM). Returns null when there is nothing to hear.
+ */
+async function prepareSoundtrack(project: Project, output: Output, format: ExportFormat, includeRecordingAudio: boolean) {
+  if (!project.music && !includeRecordingAudio) return null
+  const codec: AudioCodec = format === 'mp4' ? 'aac' : 'opus'
+  if (!(await canEncodeAudio(codec, { numberOfChannels: 2, sampleRate: 48000 }))) {
+    console.warn(`[export] this browser cannot encode ${codec}; exporting without audio`)
     return null
   }
-  const source = new EncodedAudioPacketSource(codec)
+  const buffer = await mixdown(project, { includeRecordingAudio, sampleRate: 48000 })
+  if (!buffer) return null
+  const source = new AudioBufferSource({ codec, quality: new Quality({ bitrate: 192_000 }) })
   output.addAudioTrack(source)
   return {
     async feed() {
-      const decoderConfig = (await track.getDecoderConfig()) ?? undefined
-      let first = true
-      for await (const packet of new EncodedPacketSink(track).packets()) {
-        if (packet.timestamp >= duration) break
-        await source.add(packet, first && decoderConfig ? { decoderConfig } : undefined)
-        first = false
-      }
+      await source.add(buffer)
       source.close()
     },
-    dispose: () => input.dispose(),
   }
 }
 

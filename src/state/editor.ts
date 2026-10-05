@@ -5,13 +5,15 @@ import { addAssetToProject } from '@/core/commands/assets'
 import { runCommand } from '@/core/commands'
 import { notify } from '@/ui/common/toast'
 import { createProject } from '@/core/factory'
-import type { Asset, Clip, DeviceNode, Project } from '@/core/schema/project'
+import type { Asset, Clip, DeviceNode, MusicAnalysis, Project } from '@/core/schema/project'
 
 export type Selection =
   | { kind: 'scene' }
   | { kind: 'device'; id: string }
   | { kind: 'camera' }
   | { kind: 'clip'; id: string }
+  | { kind: 'shot'; id: string }
+  | { kind: 'music' }
 
 interface EditorState {
   project: Project
@@ -22,7 +24,7 @@ interface EditorState {
   select(s: Selection): void
   /** Runs a core command (same API as agents). Errors become toasts; returns the result or null. */
   exec(command: string, args?: unknown): Record<string, unknown> | null
-  addAsset(asset: Asset, deviceId?: string): void
+  addAsset(asset: Asset, deviceId?: string, analysis?: MusicAnalysis): void
   addPresetClip(presetId: string, at: number): Clip | null
   updateClip(id: string, recipe: (c: Clip) => void): void
   removeClip(id: string): void
@@ -70,8 +72,8 @@ export const useEditor = create<EditorState>()(
         }
       },
 
-      addAsset: (asset, deviceId) =>
-        set((s) => ({ project: addAssetToProject(s.project, asset, { deviceId }) })),
+      addAsset: (asset, deviceId, analysis) =>
+        set((s) => ({ project: addAssetToProject(s.project, asset, { deviceId, analysis }) })),
 
       addPresetClip: (presetId, at) => {
         const { project, selection, exec } = get()

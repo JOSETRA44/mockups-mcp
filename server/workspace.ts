@@ -5,7 +5,7 @@ import { basename, extname, join } from 'node:path'
 import { runCommand, type CommandContext } from '../src/core/commands'
 import { addAssetToProject } from '../src/core/commands/assets'
 import { createProject, uid } from '../src/core/factory'
-import { parseProject, type Asset, type Project } from '../src/core/schema/project'
+import { parseProject, type Asset, type MusicAnalysis, type Project, type ScreenRegion } from '../src/core/schema/project'
 import { MEDIA_TYPES, probeFile } from './probe'
 
 export interface ProjectChange {
@@ -38,6 +38,11 @@ export class Workspace extends EventEmitter<{ change: [ProjectChange]; deleted: 
   private entries = new Map<string, Entry>()
   private assetIndex = new Map<string, string>()
   private writeQueue = new Map<string, Promise<void>>()
+  /**
+   * Optional media analysis (palette for images/videos, beats for songs), provided by the
+   * server through the headless renderer so agents get the same analysis as the editor.
+   */
+  enrich: ((assetId: string, kind: Asset['kind']) => Promise<{ palette?: string[]; regions?: ScreenRegion[]; analysis?: MusicAnalysis }>) | null = null
 
   constructor(home: string) {
     super()
@@ -172,10 +177,17 @@ export class Workspace extends EventEmitter<{ change: [ProjectChange]; deleted: 
 
   /** Imports a local file and registers it in the project (optionally on a device screen). */
   async importMedia(id: string, sourcePath: string, opts: { deviceId?: string; assign?: boolean; name?: string } = {}, origin = 'agent') {
-    const asset = await this.storeAsset(id, sourcePath, opts.name)
+    let asset = await this.storeAsset(id, sourcePath, opts.name)
+    type Extra = { palette?: string[]; regions?: ScreenRegion[]; analysis?: MusicAnalysis }
+    const extra: Extra = this.enrich ? await this.enrich(asset.id, asset.kind).catch((err): Extra => {
+      console.error('[unicali] media analysis failed:', (err as Error).message)
+      return {}
+    }) : {}
+    if (extra.palette) asset = { ...asset, palette: extra.palette }
+    if (extra.regions?.length) asset = { ...asset, regions: extra.regions }
     const { project } = await this.get(id)
-    const saved = await this.put(id, addAssetToProject(project, asset, opts), origin)
-    return { asset, ...saved }
+    const saved = await this.put(id, addAssetToProject(project, asset, { ...opts, analysis: extra.analysis }), origin)
+    return { asset, analysis: extra.analysis ?? null, ...saved }
   }
 
   assetPath(assetId: string) {

@@ -77,6 +77,16 @@ describe('shots', () => {
     }
   })
 
+  it('storyboard aims at the UI blocks detected in the screenshot', () => {
+    let p = addAssetToProject(fresh(), {
+      id: 'shot', kind: 'image', name: 'a.png', mime: 'image/png', width: 390, height: 844,
+      regions: [{ x: 0.5, y: 0.22, size: 0.25, w: 0.95 }, { x: 0.5, y: 0.9, size: 0.14, w: 0.9 }],
+    })
+    p = runCommand(p, 'create_storyboard', {}).project
+    const focus = p.shots.filter((s) => s.kind === 'focus')
+    expect(focus.map((s) => s.region.y)).toEqual([0.22, 0.9])
+  })
+
   it('storyboard uses musical lengths when there is a song', () => {
     const { project, result } = runCommand(withMusic(fresh()), 'create_storyboard', { focusCount: 2, barsPerShot: 2 })
     expect(result?.secondsPerShot).toBe(4)

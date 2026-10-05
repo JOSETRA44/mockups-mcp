@@ -51,7 +51,7 @@ export class UnicaliClient {
   redo(id: string) { return this.req<{ revision: number; summary: Record<string, unknown> }>('POST', `/api/projects/${id}/redo`, {}) }
   sample(id: string, times: number[]) { return this.req<{ samples: unknown[] }>('POST', `/api/projects/${id}/sample`, { times }) }
   importFile(id: string, path: string, opts: { deviceId?: string; assign?: boolean; name?: string } = {}) {
-    return this.req<{ asset: Record<string, unknown>; revision: number }>('POST', `/api/projects/${id}/import`, { path, ...opts })
+    return this.req<{ asset: Record<string, unknown>; revision: number; analysis?: unknown }>('POST', `/api/projects/${id}/import`, { path, ...opts })
   }
   frames(id: string, req: Partial<FramesRequest> & { outputPath?: string; overwrite?: boolean }) {
     return this.req<Buffer>('POST', `/api/projects/${id}/frames`, req, true)

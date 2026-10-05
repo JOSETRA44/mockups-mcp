@@ -6,7 +6,8 @@ import { evaluate } from '@/core/animation/evaluate'
 import { sampleKeyframes } from '@/core/animation/keyframes'
 import { Engine } from '@/engine/Engine'
 import { AssetSourceProvider } from '@/engine/sources/sources'
-import { backend } from '@/media/backend'
+import { importIntoEditor } from '@/media/backend'
+import { MusicPlayer } from '@/media/audio'
 import { firstDevice, useEditor } from '@/state/editor'
 import { usePlayback } from '@/state/playback'
 import { notify } from './common/toast'
@@ -42,6 +43,7 @@ export function Viewport() {
     const engine = new Engine({ canvas, width: 2, height: 2, pixelRatio: Math.min(2, devicePixelRatio) })
     const provider = new AssetSourceProvider('preview')
     engine.setSources(provider)
+    const player = new MusicPlayer()
     engineRef.current = engine
 
     let raf = 0
@@ -54,7 +56,9 @@ export function Viewport() {
       const pb = usePlayback.getState()
       let time = pb.time
       if (pb.playing) {
-        time += dt
+        // With music, the audio clock is the master so picture and sound never drift.
+        const audioClock = project.music ? player.clock() : null
+        time = audioClock ?? time + dt
         const dur = project.settings.duration
         if (time >= dur) {
           if (pb.loop) time %= dur
@@ -69,6 +73,7 @@ export function Viewport() {
         provider.setAssets(project.assets)
         lastAssets = project.assets
       }
+      void player.sync(project, time, pb.playing)
       const scene = evaluate(project, Math.min(time, project.settings.duration))
       void engine.prepareSources(scene, pb.playing)
       engine.render(scene)
@@ -77,6 +82,7 @@ export function Viewport() {
     raf = requestAnimationFrame(tick)
     return () => {
       cancelAnimationFrame(raf)
+      player.stop()
       provider.dispose()
       engine.dispose()
       engineRef.current = null
@@ -151,7 +157,7 @@ export function Viewport() {
     const file = e.dataTransfer.files[0]
     if (!file) return
     try {
-      useEditor.getState().addAsset(await backend.importFile(useEditor.getState().project.id, file))
+      await importIntoEditor(file)
     } catch (err) {
       notify((err as Error).message, 'error')
     }

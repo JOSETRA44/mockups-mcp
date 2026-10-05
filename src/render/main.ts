@@ -7,7 +7,8 @@ import { parseProject, type Project } from '@/core/schema/project'
 import { Engine } from '@/engine/Engine'
 import { AssetSourceProvider } from '@/engine/sources/sources'
 import { exportProject, type ExportOptions } from '@/export/exporter'
-import { setRemoteAssetBase } from '@/media/assetStore'
+import { getBlob, setRemoteAssetBase } from '@/media/assetStore'
+import { analyzeBlob, visualOf } from '@/media/audio'
 
 setRemoteAssetBase('')
 
@@ -87,10 +88,18 @@ async function exportTo(projectId: string, opts: Omit<ExportOptions, 'fileHandle
   return { filename: result.filename, codec: result.codec, frames: result.frames, seconds: result.seconds, bytes: result.blob.size }
 }
 
+/** Media intelligence for server-side imports: same code as the editor uses. */
+async function analyze(assetId: string, kind: 'image' | 'video' | 'audio') {
+  const blob = await getBlob(assetId)
+  if (!blob) throw new Error(`Asset ${assetId} not found`)
+  if (kind === 'audio') return { analysis: (await analyzeBlob(blob)).analysis }
+  return visualOf(blob, kind)
+}
+
 declare global {
   interface Window {
-    unicaliRender: { ready: boolean; frames: typeof frames; export: typeof exportTo }
+    unicaliRender: { ready: boolean; frames: typeof frames; export: typeof exportTo; analyze: typeof analyze }
   }
 }
 
-window.unicaliRender = { ready: true, frames, export: exportTo }
+window.unicaliRender = { ready: true, frames, export: exportTo, analyze }

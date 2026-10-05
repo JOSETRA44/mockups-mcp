@@ -2,7 +2,7 @@ import { open } from 'node:fs/promises'
 import { extname } from 'node:path'
 import { ALL_FORMATS, FilePathSource, Input } from 'mediabunny'
 
-export const MEDIA_TYPES: Record<string, { kind: 'image' | 'video'; mime: string }> = {
+export const MEDIA_TYPES: Record<string, { kind: 'image' | 'video' | 'audio'; mime: string }> = {
   '.png': { kind: 'image', mime: 'image/png' },
   '.jpg': { kind: 'image', mime: 'image/jpeg' },
   '.jpeg': { kind: 'image', mime: 'image/jpeg' },
@@ -12,10 +12,16 @@ export const MEDIA_TYPES: Record<string, { kind: 'image' | 'video'; mime: string
   '.m4v': { kind: 'video', mime: 'video/mp4' },
   '.mov': { kind: 'video', mime: 'video/quicktime' },
   '.webm': { kind: 'video', mime: 'video/webm' },
+  '.mp3': { kind: 'audio', mime: 'audio/mpeg' },
+  '.wav': { kind: 'audio', mime: 'audio/wav' },
+  '.m4a': { kind: 'audio', mime: 'audio/mp4' },
+  '.aac': { kind: 'audio', mime: 'audio/aac' },
+  '.ogg': { kind: 'audio', mime: 'audio/ogg' },
+  '.flac': { kind: 'audio', mime: 'audio/flac' },
 }
 
 export interface Probe {
-  kind: 'image' | 'video'
+  kind: 'image' | 'video' | 'audio'
   mime: string
   width: number
   height: number
@@ -68,6 +74,14 @@ export async function probeFile(path: string): Promise<Probe> {
     }
   }
   const input = new Input({ source: new FilePathSource(path), formats: ALL_FORMATS })
+  if (type.kind === 'audio') {
+    try {
+      if (!(await input.getPrimaryAudioTrack())) throw new Error(`${path} has no audio track`)
+      return { ...type, width: 0, height: 0, duration: await input.computeDuration() }
+    } finally {
+      input.dispose()
+    }
+  }
   try {
     const video = await input.getPrimaryVideoTrack()
     if (!video) throw new Error(`${path} has no video track`)

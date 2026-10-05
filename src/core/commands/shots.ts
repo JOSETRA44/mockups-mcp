@@ -172,11 +172,11 @@ export const createStoryboard = defineCommand({
   name: 'create_storyboard',
   summary: 'Build a ready-to-tweak camera story in one step',
   description:
-    'Creates an intro angle, `focusCount` focus shots spread down the screen (top → bottom), and a hero ending. ' +
+    'Creates an intro angle, focus shots on the UI blocks detected in the screenshot (cards, buttons, top to bottom; spread evenly when none were detected), and a hero ending. ' +
     'With music, each shot lasts `barsPerShot` bars so changes land on the music; otherwise `secondsPerShot`. ' +
     'Pass `regions` to aim the focus shots at specific UI (recommended: look at the screenshot first).',
   args: z.object({
-    focusCount: z.number().int().min(0).max(8).default(3),
+    focusCount: z.number().int().min(0).max(8).optional().describe('Number of focus shots (default: detected UI blocks, else 3)'),
     regions: z.array(Region).max(8).optional(),
     barsPerShot: z.number().int().min(1).max(16).default(2),
     secondsPerShot: z.number().min(0.5).max(10).default(2),
@@ -186,8 +186,13 @@ export const createStoryboard = defineCommand({
     checkDevice(p, a.deviceId)
     const grid = musicGrid(p)
     const shotLen = grid ? (a.barsPerShot * 4 * 60) / grid.bpm : a.secondsPerShot
-    const count = a.regions?.length ?? a.focusCount
-    const regions = a.regions ?? Array.from({ length: count }, (_, i) => ({ x: 0.5, y: +((i + 0.5) / count * 0.9 + 0.05).toFixed(3), size: 0.38, w: 0.95 }))
+    // Aim at real UI when the screenshot was analysed on import; otherwise spread evenly.
+    const dev = findDevice(p, a.deviceId)
+    const detected = dev.screen.assetId ? p.assets[dev.screen.assetId]?.regions ?? [] : []
+    const count = a.regions?.length ?? a.focusCount ?? (detected.length || 3)
+    const regions = a.regions ?? (detected.length
+      ? detected.slice(0, count)
+      : Array.from({ length: count }, (_, i) => ({ x: 0.5, y: +((i + 0.5) / count * 0.9 + 0.05).toFixed(3), size: 0.38, w: 0.95 })))
     const inputs: ShotInputT[] = [
       { kind: 'angle', duration: shotLen, deviceId: a.deviceId },
       ...regions.map((region) => ({ kind: 'focus' as const, duration: shotLen, region, deviceId: a.deviceId })),

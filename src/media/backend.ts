@@ -115,3 +115,13 @@ export function openLive(projectId: string, onMessage: (m: LiveMessage) => void,
     },
   }
 }
+
+/** The one import path for the UI: store via the backend, analyse locally, register in the document. */
+export async function importIntoEditor(file: File, opts: { deviceId?: string } = {}) {
+  const { useEditor } = await import('@/state/editor')
+  const { enrichMedia } = await import('./import')
+  const stored = await backend.importFile(useEditor.getState().project.id, file)
+  const { asset, analysis } = await enrichMedia(file, stored)
+  useEditor.getState().addAsset(asset, asset.kind === 'audio' ? undefined : opts.deviceId, analysis)
+  return asset
+}

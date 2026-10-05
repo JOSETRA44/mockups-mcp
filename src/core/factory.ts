@@ -82,5 +82,7 @@ export function createProject(name = 'Untitled project'): Project {
     assets: {},
     tracks: [],
     clips: [createClip('hero-reveal', device.id, 0), { ...createClip('floating', device.id, 2.2), duration: 2.8 }],
+    shots: [],
+    music: null,
   }
 }

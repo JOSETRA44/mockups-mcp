@@ -5,6 +5,8 @@ import type { PresetContext, PresetCurve } from '../presets/types'
 import type { CameraNode, Clip, DeviceNode, Keyframe, Project, Track } from '../schema/project'
 import { baseChannels, resolveScene, type ChannelMap, type ResolvedScene } from './channels'
 import { sampleKeyframes } from './keyframes'
+import { evaluateShots } from '../shots/shots'
+import { accentAt } from '../music/sync'
 
 export function presetContext(project: Project, clip: Clip): PresetContext {
   const cam = project.nodes.find((n): n is CameraNode => n.type === 'camera')
@@ -51,6 +53,18 @@ export const clipProgress = (clip: Clip, t: number) => clamp((t - clip.start) / 
  */
 export function evaluateChannels(project: Project, t: number): ChannelMap {
   const out = baseChannels(project)
+
+  // Shots (the camera story) replace the camera's rest pose.
+  const rig = evaluateShots(project, t)
+  if (rig && 'camera.yaw' in out) {
+    out['camera.target.x'] = rig.target[0]
+    out['camera.target.y'] = rig.target[1]
+    out['camera.target.z'] = rig.target[2]
+    out['camera.yaw'] = rig.yaw
+    out['camera.pitch'] = rig.pitch
+    out['camera.distance'] = rig.distance
+    out['camera.fov'] = rig.fov
+  }
   const offsets: ChannelMap = {}
   const absSet = new Set<string>()
   const clips = [...project.clips].sort((a, b) => a.start - b.start)
@@ -75,6 +89,10 @@ export function evaluateChannels(project: Project, t: number): ChannelMap {
   }
 
   for (const [path, v] of Object.entries(offsets)) out[path] += v
+
+  // Musical accents on top of everything (a relative push of the camera distance).
+  const accent = accentAt(project, t)
+  if (accent && 'camera.distance' in out) out['camera.distance'] *= 1 + accent
   return out
 }
 

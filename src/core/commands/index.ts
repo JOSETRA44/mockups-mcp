@@ -8,6 +8,9 @@ import {
   setScreen,
 } from './scene'
 import { applyTemplate } from './templates'
+import { addShot, bakeShots, createStoryboard, moveShot, removeShot, setShots, updateShot } from './shots'
+import { fitToMusicCmd, removeMusic, setMusic, setTempo } from './music'
+import { applyLook } from './looks'
 import { CommandError, defaultContext, type Command, type CommandContext, type CommandOutput } from './types'
 
 export * from './types'
@@ -35,6 +38,18 @@ export const COMMANDS: Command[] = [
   removeKeyframes,
   setChannelValue,
   setCameraPath,
+  setShots,
+  addShot,
+  updateShot,
+  removeShot,
+  moveShot,
+  createStoryboard,
+  bakeShots,
+  setMusic,
+  removeMusic,
+  setTempo,
+  fitToMusicCmd,
+  applyLook,
   applyTemplate,
 ] as Command[]
 

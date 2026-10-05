@@ -5,6 +5,9 @@ import { FORMATS } from '../factory'
 import { PRESETS } from '../presets/registry'
 import type { Project } from '../schema/project'
 import { TEMPLATES } from './templates'
+import { LOOKS } from '../looks'
+import { SHOT_DEFAULTS, shotHoldTimes } from '../shots/shots'
+import { musicGrid } from '../music/sync'
 
 const r = (n: number, d = 3) => Math.round(n * 10 ** d) / 10 ** d
 const r3 = (v: number[]) => v.map((n) => r(n))
@@ -31,6 +34,12 @@ export function describeProject(p: Project) {
         : [],
     ),
     camera: p.nodes.flatMap((n) => (n.type === 'camera' ? [{ target: r3(n.target), yaw: r(n.yaw), pitch: r(n.pitch), distance: r(n.distance), fov: r(n.fov) }] : []))[0],
+    shots: p.shots.map((s, i) => ({
+      shotId: s.id, kind: s.kind, start: r(s.start), end: r(s.start + s.duration), hold: shotHoldTimes(p.shots)[i],
+      ...(s.kind === 'focus' ? { region: s.region } : { fill: s.fill }), yaw: s.yaw, pitch: s.pitch,
+      move: s.move, moveAmount: s.moveAmount, transition: s.transition, ease: s.ease, ...(s.deviceId ? { deviceId: s.deviceId } : {}),
+    })),
+    music: describeMusic(p),
     motions: [...p.clips]
       .sort((a, b) => a.start - b.start)
       .map((c) => ({ clipId: c.id, preset: c.presetId, target: c.target, start: r(c.start), end: r(c.start + c.duration), params: c.params })),
@@ -44,6 +53,26 @@ export function describeProject(p: Project) {
     assets: Object.values(p.assets).map((a) => ({
       id: a.id, kind: a.kind, name: a.name, width: a.width, height: a.height, ...(a.duration ? { duration: r(a.duration) } : {}),
     })),
+  }
+}
+
+function describeMusic(p: Project) {
+  const m = p.music
+  if (!m) return null
+  const grid = musicGrid(p)
+  const a = m.analysis
+  return {
+    asset: p.assets[m.assetId]?.name ?? m.assetId,
+    offset: m.offset, volume: m.volume, fadeIn: m.fadeIn, fadeOut: m.fadeOut, accents: m.accents,
+    analysed: !!a,
+    ...(a ? {
+      bpm: a.bpm,
+      songDuration: r(a.duration),
+      barSeconds: r((4 * 60) / a.bpm),
+      // Project-time view (what matters for timing shots); song-time sections for choosing `offset`.
+      barsInVideo: grid?.bars.filter((t) => t <= p.settings.duration + 0.01).map((t) => r(t, 2)),
+      sections: a.sections.map((s) => ({ label: s.label, energy: s.energy, songStart: r(s.start, 2), songEnd: r(s.end, 2) })),
+    } : {}),
   }
 }
 
@@ -69,6 +98,8 @@ export function catalog() {
       id: p.id, name: p.name, description: p.description, target: p.target, category: p.category,
       defaultDuration: p.defaultDuration, params: p.params,
     })),
+    shotKinds: Object.fromEntries(Object.entries(SHOT_DEFAULTS).map(([k, d]) => [k, { defaults: d }])),
+    looks: [...LOOKS.map((l) => ({ id: l.id, name: l.name })), { id: 'match-media', name: 'Match media' }],
     templates: TEMPLATES.map(({ id, name, description, duration }) => ({ id, name, description, duration })),
     eases: EASE_IDS,
     channels: {

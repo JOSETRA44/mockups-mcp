@@ -1,21 +1,15 @@
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, ArrowRight, Copy, KeyRound, Music2, Trash2, Wand2 } from 'lucide-react'
-import { EASE_IDS } from '@/core/animation/easing'
 import { LOOKS, lookFromPalette } from '@/core/looks'
 import type { ShotKind, ShotMove } from '@/core/schema/project'
 import { useEditor } from '@/state/editor'
 import { usePlayback } from '@/state/playback'
 import { Button, Section, Segmented, Select, Slider } from '../common/controls'
 import { notify } from '../common/toast'
-import { SHOT_ICONS } from '../timeline/Timeline'
+import { SHOT_ICONS } from '../common/shotIcons'
+import { useEaseOptions } from '../common/eases'
 import { ScreenRegionPicker } from './ScreenRegionPicker'
-
-/** Easing names describe a feel (Jitter-style), not a curve. */
-export function useEaseOptions() {
-  const { t } = useTranslation()
-  return EASE_IDS.map((e) => ({ value: e, label: t(`eases.${e}`) }))
-}
 
 const TRANSITIONS = [
   { id: 'cut', seconds: 0 },

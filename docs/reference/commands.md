@@ -205,6 +205,152 @@ Every command is available as: an MCP tool (same name, plus optional `projectId`
 | `replace` | boolean |  | default `true` |
 | `clearCameraMotions` | boolean |  | default `true` |
 
+## `set_shots`
+
+**Set the camera story as a list of shots.** Replaces the camera story with shots played in order (each starts when the previous ends; the scene length becomes their total). A shot describes WHAT is seen: "focus" frames a region of the screen (pick it from the screenshot, UV from top-left), the others frame the device. The camera arrives at each shot's start (transition plays before it). Fields you omit use good defaults per kind. Typical: angle (2 s) → focus top (2 s) → focus bottom (2 s) → hero (2 s). Then fit_to_music if there is a song.
+
+| Arg | Type | Required | Notes |
+|---|---|---|---|
+| `shots` | { kind, duration, deviceId, region, yaw, pitch, fill, move, moveAmount, transition, ease }[] | yes |  |
+| `shots[].kind` | `"hero"` \| `"focus"` \| `"angle"` \| `"wide"` \| `"orbit"` | yes | hero (whole device, front), focus (a screen region), angle (3/4 beauty view), wide (small, lots of space), orbit (camera circles) |
+| `shots[].duration` | number | yes | Seconds — ≥ 0.2, ≤ 60 |
+| `shots[].deviceId` | string \| null |  |  |
+| `shots[].region` | { x, y, size, w } |  | What to frame (focus shots) |
+| `shots[].yaw` | number |  | View angle around the device, degrees (0 = front, - = from the left) — ≥ -180, ≤ 180 |
+| `shots[].pitch` | number |  | Degrees, + = from above — ≥ -80, ≤ 80 |
+| `shots[].fill` | number |  | Device height as a fraction of the frame (hero/angle/wide/orbit) — ≥ 0.1, ≤ 1.5 |
+| `shots[].move` | `"hold"` \| `"push"` \| `"pull"` \| `"drift"` \| `"orbit"` |  | Motion during the shot: hold, push (closer), pull (back), drift (slow sideways), orbit |
+| `shots[].moveAmount` | number |  | ≥ 0, ≤ 1 |
+| `shots[].transition` | number |  | Seconds the camera takes to arrive; 0 = cut — ≥ 0, ≤ 4 |
+| `shots[].ease` | `"linear"` \| `"easeIn"` \| `"easeOut"` \| `"easeInOut"` \| `"product"` \| `"expoOut"` \| `"backOut"` \| `"spring"` |  | Feel of the arrival (product = signature, easeInOut = smooth, spring = playful) |
+
+## `add_shot`
+
+**Insert one shot into the camera story.** Inserts at `index` (default: end) or at the shot under `time`. Later shots move right.
+
+| Arg | Type | Required | Notes |
+|---|---|---|---|
+| `kind` | `"hero"` \| `"focus"` \| `"angle"` \| `"wide"` \| `"orbit"` | yes |  |
+| `duration` | number |  | ≥ 0.2, ≤ 60, default `2` |
+| `index` | integer |  | ≥ 0, ≤ 9007199254740991 |
+| `time` | number |  | Insert after the shot playing at this time — ≥ 0 |
+| `deviceId` | string \| null |  |  |
+| `region` | { x, y, size, w } |  | What to frame (focus shots) |
+| `yaw` | number |  | View angle around the device, degrees (0 = front, - = from the left) — ≥ -180, ≤ 180 |
+| `pitch` | number |  | Degrees, + = from above — ≥ -80, ≤ 80 |
+| `fill` | number |  | Device height as a fraction of the frame (hero/angle/wide/orbit) — ≥ 0.1, ≤ 1.5 |
+| `move` | `"hold"` \| `"push"` \| `"pull"` \| `"drift"` \| `"orbit"` |  | Motion during the shot: hold, push (closer), pull (back), drift (slow sideways), orbit |
+| `moveAmount` | number |  | ≥ 0, ≤ 1 |
+| `transition` | number |  | Seconds the camera takes to arrive; 0 = cut — ≥ 0, ≤ 4 |
+| `ease` | `"linear"` \| `"easeIn"` \| `"easeOut"` \| `"easeInOut"` \| `"product"` \| `"expoOut"` \| `"backOut"` \| `"spring"` |  | Feel of the arrival (product = signature, easeInOut = smooth, spring = playful) |
+
+## `update_shot`
+
+**Change a shot (framing, angle, move, transition, length).** Changing duration uses a "roll" edit by default: the next shot absorbs the difference so everything after stays in place (ripple=true pushes later shots instead). Changing kind keeps your region/duration and resets the rest to that kind's defaults unless also given.
+
+| Arg | Type | Required | Notes |
+|---|---|---|---|
+| `shotId` | string | yes |  |
+| `kind` | `"hero"` \| `"focus"` \| `"angle"` \| `"wide"` \| `"orbit"` |  |  |
+| `duration` | number |  | ≥ 0.2, ≤ 60 |
+| `ripple` | boolean |  | default `false` |
+| `deviceId` | string \| null |  |  |
+| `region` | { x, y, size, w } |  | What to frame (focus shots) |
+| `yaw` | number |  | View angle around the device, degrees (0 = front, - = from the left) — ≥ -180, ≤ 180 |
+| `pitch` | number |  | Degrees, + = from above — ≥ -80, ≤ 80 |
+| `fill` | number |  | Device height as a fraction of the frame (hero/angle/wide/orbit) — ≥ 0.1, ≤ 1.5 |
+| `move` | `"hold"` \| `"push"` \| `"pull"` \| `"drift"` \| `"orbit"` |  | Motion during the shot: hold, push (closer), pull (back), drift (slow sideways), orbit |
+| `moveAmount` | number |  | ≥ 0, ≤ 1 |
+| `transition` | number |  | Seconds the camera takes to arrive; 0 = cut — ≥ 0, ≤ 4 |
+| `ease` | `"linear"` \| `"easeIn"` \| `"easeOut"` \| `"easeInOut"` \| `"product"` \| `"expoOut"` \| `"backOut"` \| `"spring"` |  | Feel of the arrival (product = signature, easeInOut = smooth, spring = playful) |
+
+## `remove_shot`
+
+**Remove a shot (or all shots).** Later shots move left. all=true clears the camera story (the camera returns to its rest pose / keyframes).
+
+| Arg | Type | Required | Notes |
+|---|---|---|---|
+| `shotId` | string |  |  |
+| `all` | boolean |  | default `false` |
+
+## `move_shot`
+
+**Reorder a shot in the story.** Moves the shot to a new position; starts are recomputed.
+
+| Arg | Type | Required | Notes |
+|---|---|---|---|
+| `shotId` | string | yes |  |
+| `index` | integer | yes | ≥ 0, ≤ 9007199254740991 |
+
+## `create_storyboard`
+
+**Build a ready-to-tweak camera story in one step.** Creates an intro angle, focus shots on the UI blocks detected in the screenshot (cards, buttons, top to bottom; spread evenly when none were detected), and a hero ending. With music, each shot lasts `barsPerShot` bars so changes land on the music; otherwise `secondsPerShot`. Pass `regions` to aim the focus shots at specific UI (recommended: look at the screenshot first).
+
+| Arg | Type | Required | Notes |
+|---|---|---|---|
+| `focusCount` | integer |  | Number of focus shots (default: detected UI blocks, else 3) — ≥ 0, ≤ 8 |
+| `regions` | { x, y, size, w }[] |  |  |
+| `regions[].x` | number | yes | Centre, 0 = left edge of the screen — ≥ 0, ≤ 1 |
+| `regions[].y` | number | yes | Centre, 0 = top of the screen — ≥ 0, ≤ 1 |
+| `regions[].size` | number | yes | Height as a fraction of the screen height — ≥ 0.05, ≤ 1.5 |
+| `regions[].w` | number |  | Width as a fraction of the screen width (default = size; ~0.95 for full-width UI) — ≥ 0.05, ≤ 1.5 |
+| `barsPerShot` | integer |  | ≥ 1, ≤ 16, default `2` |
+| `secondsPerShot` | number |  | ≥ 0.5, ≤ 10, default `2` |
+| `deviceId` | string |  |  |
+
+## `bake_shots`
+
+**Convert the shots into camera keyframes (advanced).** Samples the camera story at the project fps into keyframe tracks and removes the shots. Use for hand-editing curves; undo to go back.
+
+_No arguments._
+
+## `set_music`
+
+**Adjust the song: start point, volume, fades, accents.** offset = song time (s) that plays at the start of the video ("start at the chorus": use a section start from get_project). accents: off | subtle | strong — tiny camera pushes on downbeats of high-energy sections only.
+
+| Arg | Type | Required | Notes |
+|---|---|---|---|
+| `offset` | number |  | ≥ 0 |
+| `volume` | number |  | ≥ 0, ≤ 2 |
+| `fadeIn` | number |  | ≥ 0, ≤ 10 |
+| `fadeOut` | number |  | ≥ 0, ≤ 10 |
+| `accents` | `"off"` \| `"subtle"` \| `"strong"` |  |  |
+
+## `remove_music`
+
+**Remove the song.** Removes the music track (the audio file stays in the project assets).
+
+_No arguments._
+
+## `set_tempo`
+
+**Correct the detected beat grid.** Fixes analysis mistakes. bpm + firstBeat rebuild a steady grid; shiftDownbeat moves bar starts by N beats (when bars start on the wrong beat); nudge shifts every beat/bar by seconds (when the grid is slightly early/late).
+
+| Arg | Type | Required | Notes |
+|---|---|---|---|
+| `bpm` | number |  | ≥ 40, ≤ 240 |
+| `firstBeat` | number |  | Song time of a beat to anchor the rebuilt grid (with bpm) — ≥ 0 |
+| `shiftDownbeat` | integer |  | ≥ -3, ≤ 3 |
+| `nudge` | number |  | ≥ -1, ≤ 1 |
+
+## `fit_to_music`
+
+**Align the story to the song (shots on bars, length on phrases).** Moves shot boundaries onto bars (preferring section changes), makes the total length a whole number of phrases, lands entrance motions on the first downbeat, starts other motions on beats, and fades the song out on the last bar. Keeps shot order and relative lengths. Safe to re-run; undo restores.
+
+| Arg | Type | Required | Notes |
+|---|---|---|---|
+| `phrase` | integer |  | Bars per phrase for the total length (4 = typical pop phrase) — ≥ 1, ≤ 16, default `4` |
+| `sectionSnap` | boolean |  | default `true` |
+
+## `apply_look`
+
+**Apply a look (background + lighting + device finish).** One-click moods: midnight, studio-white, sunset, mint, noir, ocean, or "match-media" to derive the background from the screenshot's colours. Fine-tune afterwards with set_background / set_lighting / set_device.
+
+| Arg | Type | Required | Notes |
+|---|---|---|---|
+| `look` | string | yes | One of: midnight, studio-white, sunset, mint, noir, ocean, match-media |
+| `keepFinish` | boolean |  | Do not change device colours — default `false` |
+
 ## `apply_template`
 
 **Replace the animation with a ready-made template.** Templates: app-launch (Hero reveal from below, gentle floating, slow push-in. The classic store-ad opener.); feature-zoom (Side entrance, then the camera dives into a feature on screen and returns.); orbit-showcase (A full hero spin while the camera arcs around — shows the hardware from every angle.); camera-journey (A keyframed camera path: wide three-quarter view → top of the screen → bottom → hero.). Clears existing motions and keyframes unless keepExisting=true. Sets the duration to the template length.

@@ -78,6 +78,11 @@ function presetsMd() {
     }
     out.push('')
   }
+  out.push('## Shot kinds', '', 'Defaults applied when a field is omitted in `set_shots` / `add_shot`.', '', '| Kind | Move | Arrival | Defaults |', '|---|---|---|---|')
+  for (const [kind, { defaults: d }] of Object.entries(c.shotKinds)) {
+    out.push(`| \`${kind}\` | ${d.move} (${d.moveAmount}) | ${d.transition}s ${d.ease} | yaw ${d.yaw}°, pitch ${d.pitch}°, ${kind === 'focus' ? `region ${JSON.stringify(d.region)}` : `fill ${d.fill}`} |`)
+  }
+  out.push('', '## Looks', '', c.looks.map((l) => `\`${l.id}\` (${l.name})`).join(', '), '')
   out.push('## Templates', '', '| Id | Name | Length | Description |', '|---|---|---|---|')
   for (const t of c.templates) out.push(`| \`${t.id}\` | ${t.name} | ${t.duration}s | ${t.description} |`)
   out.push('', '## Devices', '', '| Id | Name | Finishes |', '|---|---|---|')

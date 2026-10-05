@@ -92,10 +92,20 @@ script + media + song ─► create_project / import_media (song analysed on imp
 - **Feel**: the product's motion signature (`product` ease) is named **Signature** in the UI;
   the easing names describe sensations.
 
-## 6. Roadmap after this iteration
+## 6. What shipped in this iteration
 
-1. Auto-suggested focus regions (detect cards and buttons in the screenshot) for one-click storyboards.
-2. Text and logo layers (CTA end cards), animated on the musical grid.
-3. Music retiming to fit a fixed duration (Remix-style bar re-arrangement).
-4. Multi-format variants (9:16 / 1:1 / 16:9) from one story, like Jitter's artboards.
-5. Export in a Web Worker; GLB devices.
+- Shots lane with live thumbnails, roll-edit retiming, shot inspector with a region picker on the
+  real screenshot, feel-named arrivals; storyboard in one click; bake to keyframes.
+- Song lane (waveform, sections), Final Cut–style beat grid, snapping, Fit to music, accents,
+  section-based song start, grid corrections, audio in preview (audio clock) and export (AAC/Opus).
+- Automatic focus regions from the screenshot (cards, buttons) feeding the storyboard.
+- Looks, including "Match media" from the screenshot's palette.
+- All of it as commands → MCP tools; `render_frames` defaults to one frame per shot.
+
+## 7. Roadmap after this iteration
+
+1. Text and logo layers (CTA end cards), animated on the musical grid.
+2. Music retiming to fit a fixed duration (Remix-style bar re-arrangement).
+3. Multi-format variants (9:16 / 1:1 / 16:9) from one story, like Jitter's artboards.
+4. Screen content swaps on a cut (several screenshots in one story).
+5. Export and analysis in Web Workers; GLB devices.

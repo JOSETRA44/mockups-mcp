@@ -50,9 +50,12 @@ Copy `.claude/skills/unicali-mockups/` to `~/.claude/skills/` (personal) or anot
 | Group | Tools |
 |---|---|
 | Session | `unicali_status`, `get_catalog`, `list_projects`, `create_project`, `use_project`, `get_project`, `delete_project` |
-| Media | `import_media` (local path → device screen) |
+| Media | `import_media` (screenshot/recording → device screen with detected UI regions; song → music track with tempo/bars/sections) |
+| Story | `set_shots`, `add_shot`, `update_shot`, `move_shot`, `remove_shot`, `create_storyboard`, `bake_shots` |
+| Music | `fit_to_music`, `set_music` (start, volume, fades, accents), `set_tempo` (grid corrections), `remove_music` |
+| Look | `apply_look` (incl. `match-media`), `set_background`, `set_lighting` |
 | Editing | one tool per command — see [reference/commands.md](reference/commands.md) — plus `batch`, `undo`, `redo` |
-| Seeing | `sample_motion` (numbers), `render_frames` (contact-sheet **image**) |
+| Seeing | `sample_motion` (numbers), `render_frames` (contact-sheet **image**; defaults to one frame per shot hold) |
 | Output | `export_video` (mp4 / webm with alpha / png zip) |
 
 Every tool takes an optional `projectId`; it defaults to the current project (set by
@@ -61,6 +64,14 @@ text names the bad argument and the valid options, so agents can self-correct. U
 arguments are rejected (no silent typos).
 
 Resources: `unicali://catalog`. Prompts: `app-promo` (guided promo workflow).
+
+### The script-to-video loop
+
+```
+create_project → import_media(screenshot) → import_media(song)
+→ set_shots (one shot per script line) or create_storyboard → fit_to_music
+→ render_frames (look at every shot) → update_shot / apply_look → export_video
+```
 
 ## 3. CLI
 

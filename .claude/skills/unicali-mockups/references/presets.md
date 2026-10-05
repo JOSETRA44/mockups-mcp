@@ -109,6 +109,22 @@ Zooms the camera onto a region of the app screen. Target: **camera** · category
 | `release` | boolean | true / false | `true` |
 | `ease` | select | `linear`, `easeIn`, `easeOut`, `easeInOut`, `product`, `expoOut`, `backOut`, `spring` | `"product"` |
 
+## Shot kinds
+
+Defaults applied when a field is omitted in `set_shots` / `add_shot`.
+
+| Kind | Move | Arrival | Defaults |
+|---|---|---|---|
+| `hero` | push (0.25) | 0.8s product | yaw 0°, pitch 0°, fill 0.62 |
+| `focus` | drift (0.3) | 0.7s product | yaw 0°, pitch 0°, region {"x":0.5,"y":0.35,"size":0.4,"w":0.95} |
+| `angle` | drift (0.5) | 0.9s product | yaw -32°, pitch 10°, fill 0.58 |
+| `wide` | pull (0.3) | 0.9s easeInOut | yaw -18°, pitch 6°, fill 0.4 |
+| `orbit` | orbit (0.5) | 0.9s easeInOut | yaw -20°, pitch 8°, fill 0.55 |
+
+## Looks
+
+`midnight` (Midnight), `studio-white` (Studio White), `sunset` (Sunset), `mint` (Mint), `noir` (Noir), `ocean` (Ocean), `match-media` (Match media)
+
 ## Templates
 
 | Id | Name | Length | Description |

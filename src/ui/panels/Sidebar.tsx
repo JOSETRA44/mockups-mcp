@@ -15,7 +15,7 @@ import { firstDevice, useEditor } from '@/state/editor'
 import { cueProject, usePlayback } from '@/state/playback'
 import { TEMPLATES } from '@/core/commands/templates'
 import type { ShotKind } from '@/core/schema/project'
-import { SHOT_ICONS } from '../timeline/Timeline'
+import { SHOT_ICONS } from '../common/shotIcons'
 import { notify } from '../common/toast'
 import { useBlobUrl } from '../common/useBlobUrl'
 

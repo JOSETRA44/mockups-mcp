@@ -1,6 +1,29 @@
 # Recipes
 
-Complete, tested sequences. Arguments are shown as MCP tool calls; with the CLI use
+Complete, tested sequences.
+
+## 0. Script + screenshot + song → promo (the main workflow)
+
+```text
+create_project  {"name": "Budget – launch"}
+import_media    {"path": "C:/Users/me/Desktop/home.png"}      # detects UI blocks (cards, buttons)
+import_media    {"path": "C:/Users/me/Music/track.mp3"}       # returns bpm + sections
+set_music       {"offset": 8.2}                                 # start at the first "peak" section (optional)
+apply_look      {"look": "match-media"}
+set_shots {"shots": [
+  {"kind": "angle", "duration": 4},
+  {"kind": "focus", "duration": 4, "region": {"x": 0.5, "y": 0.26, "size": 0.3, "w": 0.95}},
+  {"kind": "focus", "duration": 4, "region": {"x": 0.5, "y": 0.92, "size": 0.16, "w": 0.95}, "transition": 0.4},
+  {"kind": "hero",  "duration": 4, "move": "push"}
+]}
+add_motion      {"preset": "hero-reveal", "start": 0, "duration": 1.8}
+fit_to_music    {}
+render_frames   {}                                              # one frame per shot hold
+export_video    {"format": "mp4"}
+```
+
+Quicker variant: replace `set_shots` with `create_storyboard {}` (it uses the detected blocks).
+ Arguments are shown as MCP tool calls; with the CLI use
 `node bin/unicali.mjs exec <projectId> <tool> '<json>'` (or `batch <id> steps.json`).
 
 ## 1. Feature zoom ad from a screenshot (9:16, ~8 s)

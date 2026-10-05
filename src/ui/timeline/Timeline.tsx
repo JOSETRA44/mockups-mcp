@@ -2,12 +2,13 @@ import clsx from 'clsx'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  Camera, Clapperboard, Focus, KeyRound, Magnet, Music2, Orbit, Pause, Play, Plus, Repeat, RotateCcw, Scan, SkipBack,
-  Smartphone, Sparkles, Wand2, type LucideIcon,
+  Camera, Clapperboard, KeyRound, Magnet, Music2, Pause, Play, Plus, Repeat, SkipBack, Smartphone, Sparkles, Wand2,
+  type LucideIcon,
 } from 'lucide-react'
 import { musicGrid, snapToGrid, type Grid } from '@/core/music/sync'
 import { getPreset } from '@/core/presets/registry'
-import type { Clip, Project, Shot, ShotKind } from '@/core/schema/project'
+import type { Clip, Project, Shot } from '@/core/schema/project'
+import { SHOT_ICONS } from '../common/shotIcons'
 import { shotHoldTimes } from '@/core/shots/shots'
 import { decodeAsset, peaks } from '@/media/audio'
 import { importIntoEditor } from '@/media/backend'
@@ -21,8 +22,6 @@ const LABEL_W = 120
 const LANE_H = 26
 const SHOT_H = 58
 const MUSIC_H = 44
-
-export const SHOT_ICONS: Record<ShotKind, LucideIcon> = { hero: Smartphone, focus: Focus, angle: RotateCcw, wide: Scan, orbit: Orbit }
 
 const fmt = (t: number) => {
   const m = Math.floor(t / 60)

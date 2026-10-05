@@ -18,7 +18,7 @@ server** (HTTP + MCP + CLI), and **headless Chrome** for rendering. They share o
 
 | Layer | Path | Responsibility | May import |
 |---|---|---|---|
-| Core | `src/core` | Document model, animation math, presets, commands | nothing outside core |
+| Core | `src/core` | Document model, animation math, presets, shots, music analysis/sync, region detection, commands | nothing outside core |
 | Engine | `src/engine` | three.js scene from a `ResolvedScene`; screen sources | core, three |
 | Export | `src/export` | Offline frame loop → WebCodecs → Mediabunny | core, engine |
 | Media | `src/media` | Import, IndexedDB, server backend | core |
@@ -39,9 +39,31 @@ background, lighting), `nodes` (devices + camera), `assets`, `clips` (preset ins
 `evaluate(project, t)` is pure:
 
 1. base values from the document,
-2. **absolute** preset curves (latest started clip wins),
-3. keyframe **tracks** (override),
-4. **offset** preset curves, summed — this is what lets motions stack.
+2. **shots** replace the camera's rest pose (the camera story; `src/core/shots`),
+3. **absolute** preset curves (latest started clip wins),
+4. keyframe **tracks** (override),
+5. **offset** preset curves, summed — this is what lets motions stack,
+6. musical **accents** (a relative push of the camera distance on energetic downbeats).
+
+## Shots and music
+
+- A **shot** is a framing intent (`hero`, `focus` on a screen region, `angle`, `wide`, `orbit`)
+  plus an in-shot move and an arrival. Shots are contiguous; `start` is the *arrival* and the
+  transition plays before it, so starts on bars make arrivals land on the beat. Framing uses
+  `src/core/camera/framing.ts`, so a focus shot survives device, aspect and model changes.
+- **Music analysis** (`src/core/music/analyze.ts`) runs on PCM in the browser (editor) or in
+  headless Chrome (server imports): SuperFlux onsets with a low-band emphasis, tempo by
+  autocorrelation with a 120 BPM prior, dynamic-programming beat tracking, 4/4 downbeats from
+  low-frequency accents, and energy sections from 4-bar novelty. The result is **stored in the
+  project** so it never re-runs silently and can be corrected (`set_tempo`).
+- **Sync** (`src/core/music/sync.ts`): project-time grid, snapping (bars before beats),
+  `fitToMusic` (bars per shot, phrase-length total, section snapping, entrances landing on
+  downbeats) and energy-aware accents.
+- **UI regions** (`src/core/vision/regions.ts`) segment a screenshot thumbnail into content
+  blocks; stored on the asset with its palette and used by `create_storyboard` and looks.
+- **Audio out**: the preview plays the song with Web Audio and uses the audio clock as master;
+  the exporter renders an offline mix (song with fades + optional recording audio) and encodes
+  it (AAC/Opus).
 
 Preset curves are built from `preset.build(params, ctx)` and cached per clip object (immutable
 updates make the cache trivially correct).

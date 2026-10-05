@@ -25,9 +25,12 @@ npm run docs         # regenerate docs/reference/* and the skill's references fr
 3. **`evaluate(project, t)` is pure and deterministic.** Preview and export both call it. Never
    read wall-clock time or randomness inside core.
 4. **The engine knows nothing about time or presets.** It draws a `ResolvedScene`.
+   Shots, music sync and accents are all resolved in core before the engine sees anything.
 5. **The project JSON is a contract.** Changing its shape means bumping `PROJECT_VERSION` and
    adding a migration in `src/core/schema/project.ts`.
 6. **The server binds to 127.0.0.1 only.** It reads and writes local files.
+7. **Analysis results are data.** Music analysis, palettes and UI regions are computed once on
+   import and stored in the document, never recomputed implicitly during evaluation.
 
 ## Adding things
 
@@ -36,6 +39,9 @@ npm run docs         # regenerate docs/reference/* and the skill's references fr
 | A motion preset | `src/core/presets/*.ts` + `registry.ts` | `npm test`, `npm run docs` |
 | A command | `src/core/commands/*.ts` + `COMMANDS` in `index.ts` | unit test in `commands.test.ts`, `npm run docs` |
 | A template | `TEMPLATES` in `src/core/commands/templates.ts` | covered by the template test |
+| A shot kind or move | `src/core/schema/project.ts` (enum) + `SHOT_DEFAULTS` / `shotRig` in `src/core/shots/shots.ts` | `story.test.ts`, i18n `shots.*` |
+| A look | `LOOKS` in `src/core/looks.ts` | |
+| Music behaviour | `src/core/music/sync.ts` (fit, snapping, accents); analysis in `analyze.ts` | `analyze.test.ts`, `story.test.ts` |
 | A device | `src/core/devices/registry.ts` (+ a builder in `src/engine/devices/` for new shapes) | |
 | An HTTP route | `server/http.ts`, client method in `server/client.ts` | |
 | An MCP tool that is not a command | `server/mcp.ts` (uses the client only) | extend `e2e/mcp.spec.ts` |

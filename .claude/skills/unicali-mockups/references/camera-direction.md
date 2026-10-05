@@ -34,6 +34,13 @@ them instead of copying numbers.
 | Orbit | `camera-orbit` (arc 40–90° for ads; 360 only for hardware showcases) |
 | Ambient life during holds | `floating` on the device (stacks with everything) |
 
+## Shots first, paths for special cases
+
+Prefer **shots** (`set_shots`, `create_storyboard`, `update_shot`): they describe what is framed,
+survive device/aspect changes, snap to music and show as cards in the editor. Use
+`set_camera_path` only for continuous moves that are not a sequence of framings (for example
+a single long fly-through), or bake shots (`bake_shots`) and edit the keyframes.
+
 ## Designing a journey with `set_camera_path`
 
 1. List the 2–4 things on screen worth showing, in the order the story needs them. Estimate

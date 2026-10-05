@@ -2,9 +2,9 @@
 
 Animated 3D device mockups for app promo videos — in the browser, and fully drivable by AI agents.
 
-Drop a screenshot or screen recording onto a 3D phone, stack motion presets (hero reveal,
-orbit, push-in, screen focus…), design camera journeys, preview in real time, and export
-MP4 / WebM with alpha / PNG sequences. Everything a human can do in the editor, an agent can
+Drop a screenshot or screen recording onto a 3D phone, tell the story as **shots** (hero, focus
+on a feature, angle, orbit), add a **song** and fit the story to its bars and sections, pick a
+**look**, preview in real time, and export MP4 (with music) / WebM with alpha / PNG sequences. Everything a human can do in the editor, an agent can
 do through **MCP**, the **CLI** or the **HTTP API** — and both can work on the same project
 live.
 
@@ -22,13 +22,19 @@ Requires Node 20+ and Google Chrome (used for headless rendering and H.264 expor
 
 ## For humans
 
-1. **Media** tab: drop a screenshot or screen recording.
-2. **Motion** tab: start from a template or click presets to add them at the playhead.
-   Motions stack; drag/resize clips on the timeline.
-3. **Camera journeys**: select *Camera*, move the playhead, frame a shot (sliders, drag in the
-   viewport, scroll to zoom) and press **Key camera here**. Repeat. Once a channel has
-   keyframes, sliders edit the key at the playhead; the ◆ button toggles keys.
-4. **Export**: MP4, WebM (alpha) or PNG sequence; resolution up to 2×, motion blur, audio.
+1. **Media**: drop a screenshot or screen recording. Cards and buttons are detected automatically.
+2. **Music**: drop a song on the *Music* lane. Tempo, bars and sections (intro, build, peak) are
+   detected and drawn as a beat grid across the timeline.
+3. **Shots**: press **Create camera story** (angle → focus on each detected block → hero), or add
+   shots one by one. Click a shot card to choose what it frames (drag on the screen miniature),
+   its angle, its motion and how the camera arrives. Drag a card's edge to retime it; edges
+   snap to bars (hold Alt to place freely).
+4. **Fit to music**: shot changes land on bars and section changes, the length ends on a phrase.
+   Optional **accents** add tiny pushes on the downbeats of energetic sections.
+5. **Look**: one-click moods in *Scene*, including **Match media** (from your screenshot's colours).
+6. **Motions** (entrances, floating, spins) and **keyframes** remain available for full control;
+   **Key camera here** builds free camera paths, and shots can be baked to keyframes.
+7. **Export**: MP4 (H.264 + AAC with the song), WebM (alpha) or PNG sequence; up to 2×, motion blur.
 
 Shortcuts: Space play/pause · ←/→ frame step (Shift = 1 s) · Home/End · Ctrl+Z / Ctrl+Shift+Z · Delete removes a clip.
 
@@ -36,7 +42,8 @@ Shortcuts: Space play/pause · ←/→ frame step (Shift = 1 s) · Home/End · C
 
 - **Claude Code in this repo**: the `unicali` MCP server is configured in `.mcp.json` and the
   `unicali-mockups` skill in `.claude/skills/` teaches the workflow. Just ask:
-  *"make a 8-second reel from ~/Desktop/home.png that zooms into the balance card"*.
+  *"make a reel from ~/Desktop/home.png and ~/Music/track.mp3: open on the app, show the balance,
+  then the transfer button, end on the phone, on the beat"*.
 - **Any MCP client**: `node bin/unicali.mjs mcp-config` prints the config to paste.
 - **Scripts / CI**: `node bin/unicali.mjs help`.
 
@@ -47,6 +54,7 @@ their work visually before exporting. Full guide: [docs/agents.md](docs/agents.m
 
 | Doc | What's inside |
 |---|---|
+| [docs/product/direction.md](docs/product/direction.md) | Research on Rotato, Screen Studio, Shots, Jitter…, the "shots on a musical grid" thesis |
 | [docs/agents.md](docs/agents.md) | MCP setup, tools, CLI, HTTP API, workspace layout |
 | [docs/architecture.md](docs/architecture.md) | Layers, document model, evaluation, sync, scaling plan |
 | [docs/export.md](docs/export.md) | Why offline WebCodecs export, formats, colour, performance |
@@ -68,7 +76,8 @@ npm run docs         # regenerate reference docs from code
 ## Project layout
 
 ```
-src/core      pure TS: schema, animation, presets, camera math, commands (shared by all clients)
+src/core      pure TS: schema, animation, presets, shots, music analysis/sync, UI-region detection,
+              camera math, commands (shared by all clients)
 src/engine    three.js renderer (devices, screen shader, lighting)
 src/export    offline WebCodecs exporter
 src/ui        React editor

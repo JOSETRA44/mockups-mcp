@@ -277,13 +277,14 @@ export async function runMcpServer() {
       'Connects to a device (default: the first connected phone, else boots an emulator image), optionally installs an APK, launches the app and switches the status bar ' +
       'to a clean presentation (9:41, full battery/signal, no notifications; restored on capture_close). Returns the first look.',
     inputSchema: {
+      kind: z.enum(['android', 'web']).default('android').describe('android = phone/emulator; web = a URL at a phone viewport'),
       target: z.string().optional().describe('Target id from capture_targets (serial, or avd:<name>)'),
-      app: z.string().optional().describe('Android package, e.g. com.example.app'),
+      app: z.string().optional().describe('Android package (com.example.app) or, for web, the URL'),
       install: z.string().optional().describe('Absolute path to an APK to install first'),
       clean: z.boolean().default(true),
     },
-  }, safe(async (a: { target?: string; app?: string; install?: string; clean?: boolean }) => {
-    const look = await client.captureOpen({ kind: 'android', ...a })
+  }, safe(async (a: { kind?: string; target?: string; app?: string; install?: string; clean?: boolean }) => {
+    const look = await client.captureOpen({ ...a, kind: a.kind ?? 'android' })
     captureSession = look.sessionId
     return lookContent(look, `Session ${look.sessionId} open.`)
   }))

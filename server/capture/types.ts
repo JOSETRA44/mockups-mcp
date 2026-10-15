@@ -24,6 +24,12 @@ export interface Look {
   blank: boolean
 }
 
+/** A finished recording; `window` marks the take inside a longer file (sources that record continuously). */
+export interface Recording {
+  path: string
+  window?: { in: number; out: number }
+}
+
 export interface OpenOptions {
   target?: string
   /** Package / bundle / URL to show. */
@@ -46,8 +52,8 @@ export interface CaptureSession {
   /** Starts the app from a fresh launch (process restarted, not data cleared). */
   relaunch(): Promise<void>
   startRecording(): Promise<void>
-  /** Stops and returns the local path of the recorded video. */
-  stopRecording(): Promise<string>
+  /** Stops and returns the recorded video. */
+  stopRecording(): Promise<Recording>
   /** Waits until two consecutive frames match (UI settled). Returns the elapsed ms. */
   waitForStill(timeoutMs?: number): Promise<number>
   close(): Promise<void>

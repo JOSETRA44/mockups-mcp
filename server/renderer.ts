@@ -113,6 +113,14 @@ export class Renderer {
     return Buffer.from((dataUrl as string).split(',')[1], 'base64')
   }
 
+  /** Encodes screencast frames (JPEG, variable frame rate) into an MP4 uploaded to uploadUrl. */
+  async encodeFrames(frames: { jpeg: string; t: number }[], size: { width: number; height: number }, uploadUrl: string) {
+    return this.run(
+      (page) => page.evaluate(([f, s, u]) => (window as any).unicaliRender.encodeFrames(f, s, u), [frames, size, uploadUrl] as const),
+      300_000,
+    )
+  }
+
   async close() {
     const b = await this.browser?.catch(() => null)
     this.browser = null

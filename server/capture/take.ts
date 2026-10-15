@@ -5,6 +5,8 @@ import type { CaptureSession } from './types'
 
 export interface TakeResult {
   videoPath: string
+  /** The take's span inside the file, when the source records continuously. */
+  window?: { in: number; out: number }
   /** Steps as performed on camera, with targets resolved to normalised points. */
   performed: Step[]
   log: string[]
@@ -50,9 +52,9 @@ export async function shootTake(session: CaptureSession, take: Take): Promise<Ta
     failure = err
   }
   // Always stop: an abandoned screenrecord keeps running on the device.
-  const videoPath = await session.stopRecording()
+  const rec = await session.stopRecording()
   if (failure) throw failure
-  return { videoPath, performed, log }
+  return { videoPath: rec.path, window: rec.window, performed, log }
 }
 
 const needsTree = (s: Step) =>

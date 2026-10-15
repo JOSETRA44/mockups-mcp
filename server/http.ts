@@ -89,9 +89,19 @@ export async function startServer(config: ServerConfig): Promise<UnicaliServer> 
   await workspace.init()
   const url = baseUrl(config)
   const renderer = new Renderer(url)
-  const capture = new CaptureHub(workspace)
   workspace.enrich = (assetId, kind) => renderer.analyze(assetId, kind)
   const uploads = new Map<string, { path: string; done: (err?: Error) => void }>()
+  const capture = new CaptureHub(workspace, {
+    // Web takes: screencast frames → MP4, encoded by the same headless renderer as exports.
+    encodeFrames: async (frames, size) => {
+      const target = join(tmpdir(), `unicali-web-take-${uid()}.mp4`)
+      const token = uid()
+      const uploaded = new Promise<void>((done, fail) => uploads.set(token, { path: target, done: (e) => (e ? fail(e) : done()) }))
+      await renderer.encodeFrames(frames, size, `${url}/api/render-jobs/${token}`)
+      await uploaded
+      return target
+    },
+  })
 
   const http = createServer((req, res) => {
     handle(req, res).catch((err) => {

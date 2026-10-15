@@ -7,7 +7,7 @@ import { frameDifference, isBlankFrame } from '../../../src/core/capture/trim'
 import { parseUiAutomator, targetPoint, type UiTree } from '../../../src/core/capture/uitree'
 import { uid } from '../../../src/core/factory'
 import { decodePng, thumbnail } from '../png'
-import type { CaptureSession, CaptureSource, CaptureTarget, Look, OpenOptions } from '../types'
+import type { CaptureSession, CaptureSource, CaptureTarget, Look, OpenOptions, Recording } from '../types'
 import { adb, adbSpawn, emulatorBinary, shell, sleep } from './adb'
 
 const DEMO = 'am broadcast -a com.android.systemui.demo'
@@ -291,7 +291,7 @@ class AndroidSession implements CaptureSession {
     }
   }
 
-  async stopRecording(): Promise<string> {
+  async stopRecording(): Promise<Recording> {
     const rec = this.recorder
     if (!rec) throw new Error('Not recording.')
     this.recorder = null
@@ -305,7 +305,7 @@ class AndroidSession implements CaptureSession {
     const local = join(mkdtempSync(join(tmpdir(), 'unicali-take-')), 'take.mp4')
     await adb(['pull', this.recordPath, local], { serial: this.serial, timeout: 120_000 })
     await this.sh(`rm -f ${this.recordPath}`).catch(() => {})
-    return local
+    return { path: local }
   }
 
   async close() {

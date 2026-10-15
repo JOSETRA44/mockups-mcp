@@ -158,10 +158,39 @@ async function sheet(projectId: string, items: SheetItem[], tileWidth = 150): Pr
   })
 }
 
+/**
+ * Encodes captured frames (JPEG with capture timestamps, variable frame rate) to H.264 MP4 and
+ * uploads it. Serves capture sources without a native recorder (web).
+ */
+async function encodeFrames(frames: { jpeg: string; t: number }[], size: { width: number; height: number }, uploadUrl: string) {
+  const { BufferTarget, CanvasSource, Mp4OutputFormat, Output, Quality } = await import('mediabunny')
+  const w = Math.round(size.width / 2) * 2, h = Math.round(size.height / 2) * 2
+  const canvas = new OffscreenCanvas(w, h)
+  const g = canvas.getContext('2d')!
+  const target = new BufferTarget()
+  const output = new Output({ format: new Mp4OutputFormat({ fastStart: 'in-memory' }), target })
+  const video = new CanvasSource(canvas, { codec: 'avc', quality: new Quality({ bitrate: 12_000_000 }) })
+  output.addVideoTrack(video)
+  await output.start()
+  const t0 = frames[0]?.t ?? 0
+  for (const [i, f] of frames.entries()) {
+    const bmp = await createImageBitmap(await (await fetch(`data:image/jpeg;base64,${f.jpeg}`)).blob())
+    g.drawImage(bmp, 0, 0, w, h)
+    bmp.close()
+    const next = frames[i + 1] ? Math.max(1 / 120, frames[i + 1].t - f.t) : 1 / 30
+    await video.add(Math.max(0, f.t - t0), next)
+  }
+  video.close()
+  await output.finalize()
+  const res = await fetch(uploadUrl, { method: 'PUT', body: target.buffer! })
+  if (!res.ok) throw new Error(`Upload failed: ${res.status}`)
+  return { frames: frames.length }
+}
+
 declare global {
   interface Window {
-    unicaliRender: { ready: boolean; frames: typeof frames; export: typeof exportTo; analyze: typeof analyze; sheet: typeof sheet }
+    unicaliRender: { ready: boolean; frames: typeof frames; export: typeof exportTo; analyze: typeof analyze; sheet: typeof sheet; encodeFrames: typeof encodeFrames }
   }
 }
 
-window.unicaliRender = { ready: true, frames, export: exportTo, analyze, sheet }
+window.unicaliRender = { ready: true, frames, export: exportTo, analyze, sheet, encodeFrames }

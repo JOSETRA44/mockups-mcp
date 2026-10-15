@@ -5,6 +5,7 @@ import { TakeSchema, type Step } from '../../src/core/capture/steps'
 import { describeTree } from '../../src/core/capture/uitree'
 import type { Workspace } from '../workspace'
 import { AndroidSource } from './android/source'
+import { WebSource, type FrameEncoder } from './web/source'
 import { shootTake } from './take'
 import type { CaptureSession, CaptureSource, Look, OpenOptions } from './types'
 
@@ -13,12 +14,16 @@ import type { CaptureSession, CaptureSource, Look, OpenOptions } from './types'
  * ends in Workspace.importMedia, so captured stills and takes become ordinary assets.
  */
 export class CaptureHub {
-  private sources = new Map<string, CaptureSource>([['android', new AndroidSource()]])
+  private sources: Map<string, CaptureSource>
   private sessions = new Map<string, CaptureSession>()
   private readonly workspace: Workspace
 
-  constructor(workspace: Workspace) {
+  constructor(workspace: Workspace, deps: { encodeFrames: FrameEncoder }) {
     this.workspace = workspace
+    this.sources = new Map<string, CaptureSource>([
+      ['android', new AndroidSource()],
+      ['web', new WebSource(deps.encodeFrames)],
+    ])
   }
 
   register(source: CaptureSource) {
@@ -85,9 +90,12 @@ export class CaptureHub {
     const take = TakeSchema.parse(raw)
     const result = await shootTake(s, take)
     const out = await this.workspace.importMedia(projectId, result.videoPath, {
-      name: `${take.label}.mp4`,
+      name: `${take.label}${extOf(result.videoPath)}`,
       assign: false,
-      extra: { source: { kind: s.kind, target: s.target, app: s.app ?? undefined, label: take.label, steps: [...take.setup, ...result.performed], capturedAt: Date.now() } },
+      extra: {
+        source: { kind: s.kind, target: s.target, app: s.app ?? undefined, label: take.label, steps: [...take.setup, ...result.performed], capturedAt: Date.now() },
+        ...windowExtras(result.window),
+      },
     }, 'capture')
     return { asset: out.asset, revision: out.revision, performed: result.performed }
   }
@@ -100,11 +108,11 @@ export class CaptureHub {
 
   async recordStop(id: string, projectId: string, label: string) {
     const s = this.get(id)
-    const path = await s.stopRecording()
-    const out = await this.workspace.importMedia(projectId, path, {
-      name: `${label}.mp4`,
+    const rec = await s.stopRecording()
+    const out = await this.workspace.importMedia(projectId, rec.path, {
+      name: `${label}${extOf(rec.path)}`,
       assign: false,
-      extra: { source: { kind: s.kind, target: s.target, app: s.app ?? undefined, label, capturedAt: Date.now() } },
+      extra: { source: { kind: s.kind, target: s.target, app: s.app ?? undefined, label, capturedAt: Date.now() }, ...windowExtras(rec.window) },
     }, 'capture')
     return { asset: out.asset, revision: out.revision }
   }
@@ -133,5 +141,10 @@ function presentLook(s: CaptureSession, look: Look) {
     png: look.png.toString('base64'),
   }
 }
+
+const extOf = (p: string) => (p.toLowerCase().endsWith('.webm') ? '.webm' : '.mp4')
+
+/** For continuous recordings the take window is the edit decision (motion analysis would span the whole file). */
+const windowExtras = (w?: { in: number; out: number }) => (w ? { trim: w, poster: Math.max(w.in, w.out - 0.1), moments: [Math.max(w.in, w.out - 0.1)] } : {})
 
 const slug = (s: string) => s.replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').slice(0, 60) || 'still'

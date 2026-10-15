@@ -52,6 +52,10 @@ export function analyzeMotion(curve: number[], fps: number, opts: { lead?: numbe
     // A moment needs the UI to stay still long enough to read (≥ 0.35 s).
     if (next - end >= 0.35) moments.push(+Math.min(next - 0.05, end + 0.25).toFixed(3))
   })
+  // Variable-frame-rate recorders (Android screenrecord) stop emitting frames once the screen
+  // is still, so a take that ends in motion actually ends on its settled result: the last frame.
+  const last = active[active.length - 1]
+  if (duration - last[1] < 0.35) moments.push(+Math.max(0, duration - 0.05).toFixed(3))
   const start = Math.max(0, active[0][0] - lead)
   const end = Math.min(duration, active[active.length - 1][1] + tail)
   return {

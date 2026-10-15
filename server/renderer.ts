@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs'
 import { chromium, type Browser, type Page } from 'playwright-core'
+import type { MediaExtras } from './workspace'
 
 export interface FramesRequest {
   times: number[]
@@ -98,9 +99,18 @@ export class Renderer {
   /** Palette (images/videos) or beat analysis (songs) for a stored asset, computed in Chrome. */
   async analyze(assetId: string, kind: 'image' | 'video' | 'audio') {
     return this.run(
-      (page) => page.evaluate(([id, k]) => (window as any).unicaliRender.analyze(id, k), [assetId, kind] as const) as Promise<{ palette?: string[]; regions?: import('../src/core/schema/project').ScreenRegion[]; analysis?: import('../src/core/schema/project').MusicAnalysis }>,
+      (page) => page.evaluate(([id, k]) => (window as any).unicaliRender.analyze(id, k), [assetId, kind] as const) as Promise<MediaExtras>,
       120_000,
     )
+  }
+
+  /** Review sheet of material (one labelled row per item; takes show several frames). PNG bytes. */
+  async sheet(projectId: string, items: { assetId: string; label: string; times?: number[] }[], tileWidth?: number): Promise<Buffer> {
+    const dataUrl = await this.run(
+      (page) => page.evaluate(([id, it, w]) => (window as any).unicaliRender.sheet(id, it, w), [projectId, items, tileWidth] as const),
+      180_000,
+    )
+    return Buffer.from((dataUrl as string).split(',')[1], 'base64')
   }
 
   async close() {

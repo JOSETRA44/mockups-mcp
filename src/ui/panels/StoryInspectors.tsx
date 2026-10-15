@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, ArrowRight, Copy, KeyRound, Music2, Trash2, Wand2 } from 'lucide-react'
-import { LOOKS, lookFromPalette } from '@/core/looks'
+import { LOOKS, lookFromPalette, projectPalette } from '@/core/looks'
 import type { ShotKind, ShotMove } from '@/core/schema/project'
 import { useEditor } from '@/state/editor'
 import { usePlayback } from '@/state/playback'
@@ -221,8 +221,7 @@ export function LooksSection() {
   const { t } = useTranslation()
   const project = useEditor((s) => s.project)
   const exec = useEditor((s) => s.exec)
-  const palette = project.nodes.flatMap((n) => (n.type === 'device' && n.screen.assetId ? project.assets[n.screen.assetId]?.palette ?? [] : []))
-  const match = lookFromPalette(palette)
+  const match = lookFromPalette(projectPalette(project))
   const bg = project.settings.background
   const looks = [...(match ? [match] : []), ...LOOKS]
   return (

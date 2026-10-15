@@ -3,6 +3,7 @@ import { uid } from '@/core/factory'
 import type { Asset } from '@/core/schema/project'
 import { putBlob } from './assetStore'
 import { analyzeBlob, visualOf } from './audio'
+import { analyzeVideo } from './takes'
 
 export const ACCEPTED = 'image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/quicktime,audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac'
 
@@ -56,6 +57,11 @@ export async function importMedia(file: File): Promise<Asset> {
 export async function enrichMedia(file: Blob, asset: Asset): Promise<{ asset: Asset; analysis?: import('@/core/schema/project').MusicAnalysis }> {
   try {
     if (asset.kind === 'audio') return { asset, analysis: (await analyzeBlob(file)).analysis }
+    if (asset.kind === 'video') {
+      // Takes: useful span, settled moments, and UI/colours from the best frame.
+      const take = await analyzeVideo(file)
+      if (take) return { asset: { ...asset, ...take } }
+    }
     return { asset: { ...asset, ...(await visualOf(file, asset.kind)) } }
   } catch (err) {
     console.warn('[import] analysis failed', err)

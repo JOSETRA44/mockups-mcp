@@ -24,6 +24,16 @@ Projects (auto-start a server if none is running)
   import <id> <file> [--device D]   Import a local screenshot / recording onto a screen
   undo <id> | redo <id>
   frames <id> --out sheet.png [--times 0,1.5,3] [--width 360]
+  material <id> --out sheet.png      Review sheet of the project's stills and takes
+
+Capture (material from a running app)
+  capture targets                    Phones, emulators and bootable emulator images
+  capture open [--app pkg] [--target id] [--install app.apk]
+  capture look <sid> [--out screen.png]
+  capture act <sid> '<step json>' [--out screen.png]
+  capture still <sid> <projectId> --label "Grades"
+  capture take <sid> <projectId> <take.json>
+  capture close <sid>
   export <id> [--format mp4|webm|png] [--scale 1] [--fps 30] [--quality high]
               [--motion-blur 1] [--out /abs/path.mp4] [--overwrite]
 
@@ -38,7 +48,8 @@ async function main() {
     allowPositionals: true,
     options: {
       port: { type: 'string' }, dev: { type: 'boolean' }, name: { type: 'string' }, template: { type: 'string' },
-      full: { type: 'boolean' }, device: { type: 'string' }, out: { type: 'string' }, times: { type: 'string' },
+      full: { type: 'boolean' }, device: { type: 'string' }, app: { type: 'string' }, target: { type: 'string' },
+      install: { type: 'string' }, label: { type: 'string' }, out: { type: 'string' }, times: { type: 'string' },
       width: { type: 'string' }, format: { type: 'string' }, scale: { type: 'string' }, fps: { type: 'string' },
       quality: { type: 'string' }, 'motion-blur': { type: 'string' }, overwrite: { type: 'boolean' },
     },
@@ -93,6 +104,29 @@ async function main() {
         })
         await writeFile(out, png)
         return print({ saved: out, bytes: png.length })
+      }
+      case 'material': {
+        const out = resolve(o.out ?? 'material.png')
+        await writeFile(out, await client.material(need(0, 'project id')))
+        return print({ saved: out })
+      }
+      case 'capture': {
+        const sub = need(0, 'capture command')
+        const saveLook = async (look: { png: string; elements: string[] } & Record<string, unknown>) => {
+          const { png, ...rest } = look
+          if (o.out) await writeFile(resolve(o.out), Buffer.from(png, 'base64'))
+          return print({ ...rest, ...(o.out ? { screenshot: resolve(o.out) } : {}) })
+        }
+        switch (sub) {
+          case 'targets': return print(await client.captureTargets())
+          case 'open': return saveLook(await client.captureOpen({ kind: 'android', app: o.app, target: o.target, install: o.install ? resolve(o.install) : undefined }) as never)
+          case 'look': return saveLook(await client.captureLook(need(1, 'session id')) as never)
+          case 'act': return saveLook(await client.captureAct(need(1, 'session id'), JSON.parse(need(2, 'step json'))) as never)
+          case 'still': return print(await client.captureStill(need(1, 'session id'), need(2, 'project id'), o.label ?? 'Screen'))
+          case 'take': return print(await client.captureTake(need(1, 'session id'), need(2, 'project id'), JSON.parse(readFileSync(need(3, 'take json file'), 'utf8'))))
+          case 'close': return print(await client.captureClose(need(1, 'session id')))
+          default: throw new Error(`Unknown capture command "${sub}".`)
+        }
       }
       case 'export':
         return print(await client.export(need(0, 'project id'), {

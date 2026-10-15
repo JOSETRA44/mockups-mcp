@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { getDevice } from '../devices/registry'
-import { LOOKS, lookFromPalette } from '../looks'
+import { LOOKS, lookFromPalette, projectPalette } from '../looks'
 import { CommandError, defineCommand, edit } from './types'
 
 export const applyLook = defineCommand({
@@ -16,9 +16,8 @@ export const applyLook = defineCommand({
   run: (p, a) => {
     let look = LOOKS.find((l) => l.id === a.look) ?? null
     if (a.look === 'match-media') {
-      const screenAsset = p.nodes.flatMap((n) => (n.type === 'device' && n.screen.assetId ? [p.assets[n.screen.assetId]] : []))[0]
-      look = lookFromPalette(screenAsset?.palette ?? [])
-      if (!look) throw new CommandError('CONFLICT', 'No palette available: put an image or video on a device screen first.')
+      look = lookFromPalette(projectPalette(p))
+      if (!look) throw new CommandError('CONFLICT', 'No palette available: import or capture a screenshot/recording first.')
     }
     if (!look) throw new CommandError('INVALID_ARGS', `Unknown look "${a.look}". Options: ${[...LOOKS.map((l) => l.id), 'match-media'].join(', ')}`)
     const chosen = look

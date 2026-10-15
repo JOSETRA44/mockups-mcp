@@ -14,6 +14,8 @@ import { shotHoldTimes } from '../src/core/shots/shots'
 import { APP_ROOT, baseUrl, VERSION, type ServerConfig } from './config'
 import { MEDIA_TYPES } from './probe'
 import { Renderer, type ExportRequest } from './renderer'
+import { CaptureHub } from './capture/hub'
+import { StepSchema } from '../src/core/capture/steps'
 import { NotFoundError, Workspace } from './workspace'
 
 const MIME: Record<string, string> = {
@@ -87,6 +89,7 @@ export async function startServer(config: ServerConfig): Promise<UnicaliServer> 
   await workspace.init()
   const url = baseUrl(config)
   const renderer = new Renderer(url)
+  const capture = new CaptureHub(workspace)
   workspace.enrich = (assetId, kind) => renderer.analyze(assetId, kind)
   const uploads = new Map<string, { path: string; done: (err?: Error) => void }>()
 
@@ -168,6 +171,7 @@ export async function startServer(config: ServerConfig): Promise<UnicaliServer> 
       }
     }
 
+    if (a === 'capture') return handleCapture(req, res, m, parts.slice(2))
     if (a !== 'projects') throw new HttpError(404, 'NOT_FOUND', `No route ${m} ${u.pathname}`)
 
     if (!id) {
@@ -224,6 +228,24 @@ export async function startServer(config: ServerConfig): Promise<UnicaliServer> 
           if (typeof body.path !== 'string') throw new HttpError(400, 'INVALID_ARGS', 'path (absolute local file path) is required')
           const out = await workspace.importMedia(id, resolve(body.path), { deviceId: body.deviceId, assign: body.assign, name: body.name }, origin)
           return send(res, 200, { asset: out.asset, analysis: out.analysis, revision: out.revision })
+        }
+        case 'material': {
+          // Review sheet of the project's material: one row per still/take with labelled frames.
+          const { project } = await workspace.get(id)
+          const wanted: string[] | null = Array.isArray(body.assetIds) ? body.assetIds : null
+          const items = Object.values(project.assets)
+            .filter((x) => x.kind !== 'audio' && (!wanted || wanted.includes(x.id)))
+            .map((x) => ({
+              assetId: x.id,
+              label: `${x.source?.label ?? x.name} [${x.id}]${x.kind === 'video' && x.trim ? ` ${x.trim.in.toFixed(1)}–${x.trim.out.toFixed(1)}s` : ''}`,
+              times: x.kind === 'video'
+                ? [x.trim?.in ?? 0, ...(x.moments ?? []), x.trim?.out ?? x.duration ?? 0].filter((t, i, all) => all.findIndex((o) => Math.abs(o - t) < 0.3) === i).slice(0, 6)
+                : undefined,
+            }))
+          if (!items.length) throw new HttpError(409, 'CONFLICT', 'The project has no screen material yet.')
+          const png = await renderer.sheet(id, items, Number(body.tileWidth ?? 150))
+          res.writeHead(200, { 'content-type': 'image/png', 'content-length': png.length })
+          return res.end(png)
         }
         case 'frames': {
           const { project } = await workspace.get(id)
@@ -285,6 +307,39 @@ export async function startServer(config: ServerConfig): Promise<UnicaliServer> 
     throw new HttpError(404, 'NOT_FOUND', `No route ${m} ${u.pathname}`)
   }
 
+  /** /api/capture/... — acquisition sessions shared by the MCP tools, the CLI and the editor. */
+  async function handleCapture(req: IncomingMessage, res: ServerResponse, m: string, rest: string[]) {
+    const [first, sid, action] = rest
+    if (first === 'targets' && m === 'GET') return send(res, 200, { targets: await capture.targets() })
+    if (first !== 'sessions') throw new HttpError(404, 'NOT_FOUND', 'No such capture route')
+    if (!sid) {
+      if (m === 'GET') return send(res, 200, { sessions: capture.list() })
+      if (m === 'POST') {
+        const body = await readJson(req)
+        const session = await capture.open(String(body.kind ?? 'android'), { target: body.target, app: body.app, install: body.install, clean: body.clean })
+        return send(res, 201, await capture.look(session.id))
+      }
+    }
+    if (sid && !action && m === 'DELETE') {
+      await capture.close(sid)
+      return send(res, 200, { ok: true })
+    }
+    if (sid && action === 'look' && m === 'GET') {
+      const u = new URL(req.url!, url)
+      return send(res, 200, await capture.look(sid, u.searchParams.get('tree') !== '0'))
+    }
+    if (sid && m === 'POST') {
+      const body = await readJson(req)
+      if (action === 'act') {
+        const step = StepSchema.parse(body.step)
+        return send(res, 200, await capture.act(sid, step, body.look !== false))
+      }
+      if (action === 'still') return send(res, 200, await capture.still(sid, String(body.projectId), String(body.label ?? 'Screen'), !!body.assign))
+      if (action === 'take') return send(res, 200, await capture.take(sid, String(body.projectId), body.take))
+    }
+    throw new HttpError(404, 'NOT_FOUND', 'No such capture route')
+  }
+
   // ---- Live sync -------------------------------------------------------------------
   const wss = new WebSocketServer({ noServer: true })
   const subscribers = new Map<WebSocket, { projectId: string; clientId: string }>()
@@ -336,6 +391,7 @@ export async function startServer(config: ServerConfig): Promise<UnicaliServer> 
     async close() {
       for (const ws of subscribers.keys()) ws.terminate()
       wss.close()
+      await capture.closeAll()
       await renderer.close()
       await vite?.close()
       await new Promise<void>((ok) => http.close(() => ok()))

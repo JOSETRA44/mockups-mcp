@@ -4,6 +4,7 @@ import {
 } from 'mediabunny'
 import { Zip, ZipPassThrough } from 'fflate'
 import { evaluate } from '@/core/animation/evaluate'
+import { screenAssetIds } from '@/core/shots/media'
 import type { Project } from '@/core/schema/project'
 import { Engine } from '@/engine/Engine'
 import { AssetSourceProvider } from '@/engine/sources/sources'
@@ -90,9 +91,8 @@ export async function exportProject(project: Project, opts: ExportOptions, cb: E
   const provider = new AssetSourceProvider('exact')
   provider.setAssets(project.assets)
   engine.setSources(provider)
-  const usedAssets = new Set(
-    project.nodes.flatMap((n) => (n.type === 'device' && n.screen.assetId ? [n.screen.assetId] : [])),
-  )
+  // Device screens and per-shot media must all be decoded before frame 0.
+  const usedAssets = new Set(screenAssetIds(project))
   await Promise.all([...usedAssets].map((id) => provider.load(id)))
 
   const checkAbort = () => {

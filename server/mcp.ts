@@ -4,6 +4,8 @@ import { z } from 'zod'
 import { COMMANDS } from '../src/core/commands'
 import { TEMPLATES } from '../src/core/commands/templates'
 import { shotHoldTimes } from '../src/core/shots/shots'
+import { StepSchema, TakeSchema } from '../src/core/capture/steps'
+import type { CaptureLook } from './client'
 import { VERSION } from './config'
 import { connect, type UnicaliClient } from './client'
 
@@ -28,7 +30,8 @@ export async function runMcpServer() {
     {
       instructions:
         `Unicali Mockups: animated 3D device mockups for app promo videos. Editor (for the human): ${health.url}. ` +
-        'Workflow: create_project (or use_project) → import_media (local screenshot/recording) → apply_template or add_motion / set_camera_path → ' +
+        'Material: import_media (local files) or capture it from a running app (capture_open → capture_look/capture_act to explore → capture_still / capture_take → review_material). ' +
+        'Workflow: create_project (or use_project) → material → set_shots with per-shot media (or create_storyboard with assetIds) → import a song → fit_to_music → ' +
         'render_frames to LOOK at the result (always check visually before exporting) → adjust → export_video. ' +
         'Units: phone ≈ 2 world units tall, angles in degrees, times in seconds, screen regions in UV (0..1 from top-left). ' +
         'Call get_catalog once to learn presets, params, devices and templates.',
@@ -238,6 +241,112 @@ export async function runMcpServer() {
     if (opts.fps === undefined) opts.fps = (await client.getProject(id)).project.settings.fps
     return [text(await client.export(id, opts))]
   }))
+
+  // ---- Capture: material from a running app ------------------------------------------
+  let captureSession: string | null = null
+  const sid = async (sessionId?: string) => {
+    if (sessionId) return (captureSession = sessionId)
+    if (captureSession) return captureSession
+    const { sessions } = await client.captureSessions()
+    if (sessions[0]) return (captureSession = sessions[0].sessionId)
+    throw new Error('No capture session. Call capture_open first.')
+  }
+  const lookContent = (l: CaptureLook, note?: string): Content[] => [
+    { type: 'image', data: l.png, mimeType: 'image/png' },
+    text(
+      [
+        note,
+        `${l.target} · ${l.foreground}${l.warning ? ` · ⚠ ${l.warning}` : ''} · ${l.size.width}×${l.size.height}`,
+        'Elements (ref role[flags] "label" @x1,y1–x2,y2 normalised):',
+        ...l.elements,
+      ].filter(Boolean).join('\n'),
+    ),
+  ]
+  const sessionId = z.string().optional().describe('Capture session (defaults to the current one)')
+
+  mcp.registerTool('capture_targets', {
+    title: 'List capture targets',
+    description: 'Connected Android phones and emulators (ready) and emulator images that can be booted (bootable).',
+    inputSchema: {},
+    annotations: { readOnlyHint: true },
+  }, safe(async () => [text(await client.captureTargets())]))
+
+  mcp.registerTool('capture_open', {
+    title: 'Open a capture session on an app',
+    description:
+      'Connects to a device (default: the first connected phone, else boots an emulator image), optionally installs an APK, launches the app and switches the status bar ' +
+      'to a clean presentation (9:41, full battery/signal, no notifications; restored on capture_close). Returns the first look.',
+    inputSchema: {
+      target: z.string().optional().describe('Target id from capture_targets (serial, or avd:<name>)'),
+      app: z.string().optional().describe('Android package, e.g. com.example.app'),
+      install: z.string().optional().describe('Absolute path to an APK to install first'),
+      clean: z.boolean().default(true),
+    },
+  }, safe(async (a: { target?: string; app?: string; install?: string; clean?: boolean }) => {
+    const look = await client.captureOpen({ kind: 'android', ...a })
+    captureSession = look.sessionId
+    return lookContent(look, `Session ${look.sessionId} open.`)
+  }))
+
+  mcp.registerTool('capture_look', {
+    title: 'Look at the device screen',
+    description: 'Screenshot plus the semantic elements on screen (refs usable in capture_act / takes). Use it to explore before shooting.',
+    inputSchema: { sessionId },
+    annotations: { readOnlyHint: true },
+  }, safe(async (a: { sessionId?: string }) => lookContent(await client.captureLook(await sid(a.sessionId)))))
+
+  mcp.registerTool('capture_act', {
+    title: 'Interact with the app (not recorded)',
+    description:
+      'Performs one step to explore or to reach a screen: {"tap": {"text": "Notas"}}, {"tap": {"ref": "e4"}}, {"tap": {"at": [0.5, 0.8]}}, {"scroll": "down"}, ' +
+      '{"type": "hola", "into": {"ref": "e2"}}, {"back": true}, {"key": "enter"}, {"waitFor": {"text": "Listo"}}, {"launch": "com.pkg"}. Returns the new look.',
+    inputSchema: { sessionId, step: StepSchema, look: z.boolean().default(true) },
+  }, safe(async (a: { sessionId?: string; step: unknown; look?: boolean }) => {
+    const out = await client.captureAct(await sid(a.sessionId), a.step, a.look !== false)
+    return 'png' in out ? lookContent(out) : [text(out)]
+  }))
+
+  mcp.registerTool('capture_still', {
+    title: 'Capture a clean screenshot as material',
+    description: 'Saves the current screen (lossless, clean status bar) into the project as an image asset; UI blocks and colours are detected. Waits for the UI to settle first.',
+    inputSchema: { sessionId, projectId, label: z.string().min(1).max(80).describe('What it shows, e.g. "Grades overview"') },
+  }, safe(async (a: { sessionId?: string; projectId?: string; label: string }) => [text(await client.captureStill(await sid(a.sessionId), await pid(a.projectId), a.label))]))
+
+  mcp.registerTool('capture_take', {
+    title: 'Shoot a directed take (recorded interaction)',
+    description:
+      'Records one deliberate interaction as a video asset. The app is relaunched, `setup` steps bring it to the start state (not recorded), the on-camera `steps` are rehearsed once ' +
+      '(targets resolved, settle times measured) and then recorded with a lead-in and a held ending. The take is trimmed automatically and its settled moments are found. ' +
+      'Keep takes short and about ONE action (open a screen, scroll a list, type a search). Returns the asset and a review sheet of its key frames.',
+    inputSchema: { sessionId, projectId, take: TakeSchema },
+  }, safe(async (a: { sessionId?: string; projectId?: string; take: unknown }) => {
+    const id = await pid(a.projectId)
+    const out = await client.captureTake(await sid(a.sessionId), id, a.take)
+    const sheet = await client.material(id, { assetIds: [String(out.asset.id)], tileWidth: 140 })
+    return [{ type: 'image', data: sheet.toString('base64'), mimeType: 'image/png' }, text({ asset: out.asset, performed: out.performed })]
+  }))
+
+  mcp.registerTool('capture_close', {
+    title: 'Close the capture session',
+    description: 'Restores the device (status bar back to normal) and ends the session.',
+    inputSchema: { sessionId },
+  }, safe(async (a: { sessionId?: string }) => {
+    const id = await sid(a.sessionId)
+    await client.captureClose(id)
+    if (captureSession === id) captureSession = null
+    return [text({ closed: id })]
+  }))
+
+  mcp.registerTool('review_material', {
+    title: 'Review the project material',
+    description: 'One image with every still and take of the project (takes show their trimmed start, settled moments and end), labelled with asset ids — use it to choose what goes in the cut.',
+    inputSchema: { projectId, assetIds: z.array(z.string()).optional() },
+    annotations: { readOnlyHint: true },
+  }, safe(async (a: { projectId?: string; assetIds?: string[] }) => {
+    const png = await client.material(await pid(a.projectId), { assetIds: a.assetIds })
+    return [{ type: 'image', data: png.toString('base64'), mimeType: 'image/png' }]
+  }))
+
 
   // ---- Resources & prompts ---------------------------------------------------------
   mcp.registerResource('catalog', 'unicali://catalog', { title: 'Unicali catalog', mimeType: 'application/json' }, async (uri) => ({

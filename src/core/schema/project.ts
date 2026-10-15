@@ -179,7 +179,13 @@ export const Shot = z.object({
    * What the screen shows during this shot (several screens/takes in one story). The swap
    * happens at the shot start — the cut. Video time = from + (t − start) × speed.
    */
-  media: z.object({ assetId: z.string(), from: z.number(), speed: z.number() }).nullable().optional(),
+  media: z.object({
+    assetId: z.string(),
+    from: z.number(),
+    speed: z.number(),
+    /** Retime the take so its useful part (from → trim out) fills the shot (0.75×–1.6×). */
+    fitTake: z.boolean().optional(),
+  }).nullable().optional(),
 })
 
 export const MusicSection = z.object({

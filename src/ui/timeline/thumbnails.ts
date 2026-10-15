@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { evaluate } from '@/core/animation/evaluate'
 import type { Project } from '@/core/schema/project'
 import { shotHoldTimes } from '@/core/shots/shots'
+import { screenAssetIds } from '@/core/shots/media'
 import { Engine } from '@/engine/Engine'
 import { AssetSourceProvider } from '@/engine/sources/sources'
 
@@ -42,7 +43,7 @@ export function useShotThumbnails(project: Project): Record<string, string> {
         if (cancelled) return
         const { engine: e, provider: prov, canvas } = renderer(project.settings.width / project.settings.height)
         prov.setAssets(project.assets)
-        const used = project.nodes.flatMap((n) => (n.type === 'device' && n.screen.assetId ? [n.screen.assetId] : []))
+        const used = screenAssetIds(project)
         await Promise.all(used.map((id) => prov.load(id)))
         const scene = sceneKey(project)
         const holds = shotHoldTimes(project.shots)

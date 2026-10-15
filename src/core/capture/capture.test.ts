@@ -78,6 +78,12 @@ describe('motion trim', () => {
     expect(m.poster).toBe(m.moments[1])
   })
 
+  it('a take that ends in motion ends on its result (VFR recorders stop at the last change)', () => {
+    const vfr = analyzeMotion([...Array(20).fill(0.001), ...Array(25).fill(0.06)], 30)
+    expect(vfr.poster).toBeCloseTo(45 / 30 - 0.05, 2)
+    expect(vfr.out).toBeCloseTo(1.5, 2)
+  })
+
   it('handles a static clip', () => {
     const s = analyzeMotion(Array(60).fill(0), 30)
     expect(s.in).toBe(0)

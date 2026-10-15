@@ -1,4 +1,4 @@
-import type { Background, Lighting } from './schema/project'
+import type { Background, Lighting, Project } from './schema/project'
 
 /**
  * Looks bundle background + lighting + device finish into one decision, the way Shots.so
@@ -21,6 +21,23 @@ export const LOOKS: Look[] = [
   { id: 'noir', name: 'Noir', background: { kind: 'solid', color: '#050506', color2: '#050506', angle: 180 }, lighting: { preset: 'dramatic', intensity: 1.2, environment: 0.8 }, finishes: ['black', 'obsidian'] },
   { id: 'ocean', name: 'Ocean', background: { kind: 'gradient', color: '#031b34', color2: '#0fb5ae', angle: 200 }, lighting: { preset: 'dramatic', intensity: 1, environment: 1 }, finishes: ['blue', 'obsidian'] },
 ]
+
+/**
+ * The colours that represent the app: from what the story shows (shot media first), then the
+ * device screens, then any visual material in the project.
+ */
+export function projectPalette(p: Project): string[] {
+  const ids = [
+    ...p.shots.flatMap((s) => (s.media ? [s.media.assetId] : [])),
+    ...p.nodes.flatMap((n) => (n.type === 'device' && n.screen.assetId ? [n.screen.assetId] : [])),
+    ...Object.keys(p.assets),
+  ]
+  for (const id of ids) {
+    const palette = p.assets[id]?.palette
+    if (palette?.length) return palette
+  }
+  return []
+}
 
 const hexToRgb = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255)
 const rgbToHex = (c: number[]) => `#${c.map((v) => Math.round(Math.min(1, Math.max(0, v)) * 255).toString(16).padStart(2, '0')).join('')}`

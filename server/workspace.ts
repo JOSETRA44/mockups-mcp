@@ -42,7 +42,7 @@ export class Workspace extends EventEmitter<{ change: [ProjectChange]; deleted: 
    * Optional media analysis (palette for images/videos, beats for songs), provided by the
    * server through the headless renderer so agents get the same analysis as the editor.
    */
-  enrich: ((assetId: string, kind: Asset['kind']) => Promise<{ palette?: string[]; regions?: ScreenRegion[]; analysis?: MusicAnalysis }>) | null = null
+  enrich: ((assetId: string, kind: Asset['kind']) => Promise<MediaExtras>) | null = null
 
   constructor(home: string) {
     super()
@@ -176,18 +176,22 @@ export class Workspace extends EventEmitter<{ change: [ProjectChange]; deleted: 
   }
 
   /** Imports a local file and registers it in the project (optionally on a device screen). */
-  async importMedia(id: string, sourcePath: string, opts: { deviceId?: string; assign?: boolean; name?: string } = {}, origin = 'agent') {
+  async importMedia(
+    id: string,
+    sourcePath: string,
+    opts: { deviceId?: string; assign?: boolean; name?: string; extra?: Partial<Asset> } = {},
+    origin = 'agent',
+  ) {
     let asset = await this.storeAsset(id, sourcePath, opts.name)
-    type Extra = { palette?: string[]; regions?: ScreenRegion[]; analysis?: MusicAnalysis }
-    const extra: Extra = this.enrich ? await this.enrich(asset.id, asset.kind).catch((err): Extra => {
+    const extra: MediaExtras = this.enrich ? await this.enrich(asset.id, asset.kind).catch((err): MediaExtras => {
       console.error('[unicali] media analysis failed:', (err as Error).message)
       return {}
     }) : {}
-    if (extra.palette) asset = { ...asset, palette: extra.palette }
-    if (extra.regions?.length) asset = { ...asset, regions: extra.regions }
+    const { analysis, ...visual } = extra
+    asset = { ...asset, ...stripEmpty(visual), ...(opts.extra ?? {}) }
     const { project } = await this.get(id)
-    const saved = await this.put(id, addAssetToProject(project, asset, { ...opts, analysis: extra.analysis }), origin)
-    return { asset, analysis: extra.analysis ?? null, ...saved }
+    const saved = await this.put(id, addAssetToProject(project, asset, { ...opts, analysis }), origin)
+    return { asset, analysis: analysis ?? null, ...saved }
   }
 
   assetPath(assetId: string) {
@@ -209,6 +213,19 @@ export class Workspace extends EventEmitter<{ change: [ProjectChange]; deleted: 
     return next
   }
 }
+
+/** What media analysis adds to an asset (computed in the headless renderer). */
+export interface MediaExtras {
+  palette?: string[]
+  regions?: ScreenRegion[]
+  analysis?: MusicAnalysis
+  trim?: { in: number; out: number }
+  moments?: number[]
+  poster?: number
+}
+
+const stripEmpty = <T extends object>(o: T): Partial<T> =>
+  Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined && !(Array.isArray(v) && v.length === 0))) as Partial<T>
 
 export class NotFoundError extends Error {
   constructor(message: string) {

@@ -87,11 +87,11 @@ export async function visualOf(blob: Blob, kind: 'image' | 'video'): Promise<{ p
   g.drawImage(source, 0, 0, w, h)
   cleanup()
   const { data } = g.getImageData(0, 0, w, h)
-  return { palette: palette(data), regions: detectRegions(data, w, h) }
+  return { palette: paletteOfPixels(data), regions: detectRegions(data, w, h) }
 }
 
 /** Dominant colours (hex), most frequent first, near-duplicates merged. */
-function palette(data: Uint8ClampedArray): string[] {
+export function paletteOfPixels(data: Uint8ClampedArray): string[] {
   const counts = new Map<number, { n: number; r: number; gr: number; b: number }>()
   for (let i = 0; i < data.length; i += 4) {
     if (data[i + 3] < 128) continue

@@ -27,6 +27,7 @@ const ShotFields = {
     assetId: z.string(),
     from: z.number().min(0).optional().describe('Seconds into the video where the shot starts (default: the take\'s trimmed start)'),
     speed: z.number().min(0.25).max(4).default(1),
+    fitTake: z.boolean().optional().describe('Retime the take so its useful part fits the shot (0.75×–1.6×); recommended for takes'),
   }).strict().nullable().optional().describe('What the screen shows during this shot (a screenshot or a take); null = the device\'s default screen'),
 }
 
@@ -69,7 +70,7 @@ function commit(p: Project, shots: Shot[]) {
 
 const checkDevice = (p: Project, id?: string | null) => { if (id) findDevice(p, id) }
 
-type MediaInput = { assetId: string; from?: number; speed?: number } | null | undefined
+type MediaInput = { assetId: string; from?: number; speed?: number; fitTake?: boolean } | null | undefined
 
 /** Validates a shot's media and fills `from` with the take's trimmed start. */
 function resolveMedia(p: Project, m: MediaInput): Shot['media'] | undefined {
@@ -78,7 +79,7 @@ function resolveMedia(p: Project, m: MediaInput): Shot['media'] | undefined {
   const asset = p.assets[m.assetId]
   if (!asset) throw new CommandError('NOT_FOUND', `No asset "${m.assetId}". Assets: ${Object.keys(p.assets).join(', ') || 'none'}`)
   if (asset.kind === 'audio') throw new CommandError('INVALID_ARGS', `"${asset.name}" is audio; shot media must be an image or video.`)
-  return { assetId: m.assetId, from: m.from ?? asset.trim?.in ?? 0, speed: m.speed ?? 1 }
+  return { assetId: m.assetId, from: m.from ?? asset.trim?.in ?? 0, speed: m.speed ?? 1, ...(m.fitTake ? { fitTake: true } : {}) }
 }
 
 export const setShots = defineCommand({
@@ -229,12 +230,13 @@ export const createStoryboard = defineCommand({
           ...material.map((asset): Omit<ShotInputT, 'media'> & { media?: Shot['media'] } => {
             const isTake = asset.kind === 'video'
             // A take reads best almost full-screen; a still focuses its most prominent block.
-            const region = isTake || !asset.regions?.length ? { x: 0.5, y: 0.5, size: 0.86, w: 1 } : asset.regions[0]
+            // Size 1.05 keeps the whole screen in a portrait frame (a take must read in full).
+            const region = isTake || !asset.regions?.length ? { x: 0.5, y: 0.5, size: 1.05, w: 1 } : asset.regions[0]
             const takeLen = isTake ? Math.max(0.5, (asset.trim?.out ?? asset.duration ?? shotLen) - (asset.trim?.in ?? 0)) : shotLen
             return {
               kind: 'focus', region, deviceId: a.deviceId, move: isTake ? 'hold' : 'drift',
               duration: isTake ? Math.max(shotLen, Math.min(takeLen, shotLen * 2)) : shotLen,
-              media: resolveMedia(p, { assetId: asset.id }),
+              media: resolveMedia(p, { assetId: asset.id, fitTake: isTake }),
             }
           }),
           { kind: 'hero', duration: shotLen, deviceId: a.deviceId, media: resolveMedia(p, { assetId: material[material.length - 1].id }) },

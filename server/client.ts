@@ -2,6 +2,19 @@ import type { Project } from '../src/core/schema/project'
 import { baseUrl, loadConfig, type ServerConfig } from './config'
 import type { ExportRequest, FramesRequest } from './renderer'
 
+export interface CaptureLook {
+  sessionId: string
+  kind: string
+  target: string
+  app: string | null
+  size: { width: number; height: number }
+  foreground: string
+  blank: boolean
+  warning?: string
+  elements: string[]
+  png: string
+}
+
 export class ApiError extends Error {
   readonly status: number
   readonly code: string
@@ -56,6 +69,23 @@ export class UnicaliClient {
   frames(id: string, req: Partial<FramesRequest> & { outputPath?: string; overwrite?: boolean }) {
     return this.req<Buffer>('POST', `/api/projects/${id}/frames`, req, true)
   }
+  material(id: string, opts: { assetIds?: string[]; tileWidth?: number } = {}) {
+    return this.req<Buffer>('POST', `/api/projects/${id}/material`, opts, true)
+  }
+  captureTargets() { return this.req<{ targets: unknown[] }>('GET', '/api/capture/targets') }
+  captureOpen(opts: { kind?: string; target?: string; app?: string; install?: string; clean?: boolean }) {
+    return this.req<CaptureLook>('POST', '/api/capture/sessions', opts)
+  }
+  captureLook(sessionId: string, tree = true) { return this.req<CaptureLook>('GET', `/api/capture/sessions/${sessionId}/look?tree=${tree ? 1 : 0}`) }
+  captureAct(sessionId: string, step: unknown, look = true) { return this.req<CaptureLook>('POST', `/api/capture/sessions/${sessionId}/act`, { step, look }) }
+  captureStill(sessionId: string, projectId: string, label: string, assign = false) {
+    return this.req<{ asset: Record<string, unknown>; revision: number }>('POST', `/api/capture/sessions/${sessionId}/still`, { projectId, label, assign })
+  }
+  captureTake(sessionId: string, projectId: string, take: unknown) {
+    return this.req<{ asset: Record<string, unknown>; revision: number; performed: unknown[] }>('POST', `/api/capture/sessions/${sessionId}/take`, { projectId, take })
+  }
+  captureClose(sessionId: string) { return this.req<{ ok: true }>('DELETE', `/api/capture/sessions/${sessionId}`) }
+  captureSessions() { return this.req<{ sessions: { sessionId: string }[] }>('GET', '/api/capture/sessions') }
   export(id: string, req: Partial<ExportRequest> & { outputPath?: string; overwrite?: boolean }) {
     return this.req<{ path: string; filename: string; codec: string; frames: number; seconds: number; bytes: number; format: string }>('POST', `/api/projects/${id}/export`, req)
   }

@@ -208,3 +208,14 @@ describe('shot media (several screens in one story)', () => {
     expect(p.shots[2].media?.from).toBe(1)
   })
 })
+
+describe('fitTake', () => {
+  it('retimes a take so its useful part ends with the shot, within natural limits', () => {
+    let p = addAssetToProject(fresh(), { id: 'take', kind: 'video', name: 't.mp4', mime: 'video/mp4', width: 1080, height: 2400, duration: 5, trim: { in: 1, out: 4.6 } }, { assign: false })
+    p = runCommand(p, 'set_shots', { shots: [{ kind: 'focus', duration: 3, media: { assetId: 'take', fitTake: true } }] }).project
+    // Useful span 3.6 s in a 3 s shot → 1.2×: the payoff (4.6 s) arrives at the end of the shot.
+    expect(evaluate(p, 2.99).devices[0].screen.mediaTime).toBeCloseTo(4.59, 1)
+    p = runCommand(p, 'update_shot', { shotId: p.shots[0].id, duration: 1 }).project
+    expect(evaluate(p, 0.99).devices[0].screen.mediaTime).toBeCloseTo(1 + 0.99 * 1.6, 1) // capped at 1.6×
+  })
+})

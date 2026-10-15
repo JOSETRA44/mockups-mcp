@@ -9,8 +9,8 @@ export interface ScreenSource {
   readonly texture: Texture
   readonly width: number
   readonly height: number
-  /** Make the texture show the frame for project time `t`. */
-  prepare(t: number, playing: boolean): void | Promise<void>
+  /** Make the texture show the frame at `mediaTime` seconds into the media. */
+  prepare(mediaTime: number, playing: boolean): void | Promise<void>
   dispose(): void
 }
 
@@ -20,5 +20,3 @@ export interface SourceProvider {
   dispose(): void
 }
 
-/** Screen videos loop over the project timeline. */
-export const videoTimeAt = (t: number, duration: number) => (duration > 0 ? t % duration : 0)

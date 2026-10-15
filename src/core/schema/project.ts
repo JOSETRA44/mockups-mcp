@@ -131,6 +131,20 @@ export const Asset = z.object({
   palette: z.array(z.string()).optional(),
   /** UI blocks detected in the screenshot (cards, buttons), top to bottom: storyboard targets. */
   regions: z.array(ScreenRegion).optional(),
+  /** Where the material came from (capture sources), kept so it can be re-shot. */
+  source: z.object({
+    kind: z.string(),
+    target: z.string().optional(),
+    app: z.string().optional(),
+    label: z.string().optional(),
+    steps: z.array(z.unknown()).optional(),
+    capturedAt: z.number().optional(),
+  }).optional(),
+  /** Useful part of a video take (seconds), from motion analysis or the user. */
+  trim: z.object({ in: z.number(), out: z.number() }).optional(),
+  /** Settled moments worth showing (seconds) and the best single still. */
+  moments: z.array(z.number()).optional(),
+  poster: z.number().optional(),
 })
 
 export const ShotKind = z.enum(['hero', 'focus', 'angle', 'wide', 'orbit'])
@@ -161,6 +175,11 @@ export const Shot = z.object({
   /** Seconds the camera takes to arrive (0 = cut). */
   transition: z.number(),
   ease: EaseId,
+  /**
+   * What the screen shows during this shot (several screens/takes in one story). The swap
+   * happens at the shot start — the cut. Video time = from + (t − start) × speed.
+   */
+  media: z.object({ assetId: z.string(), from: z.number(), speed: z.number() }).nullable().optional(),
 })
 
 export const MusicSection = z.object({

@@ -1,5 +1,6 @@
 import type { Vec3 } from '../math'
 import { rigPosition } from '../camera/rig'
+import { screenMediaAt } from '../shots/media'
 import type {
   Background, CameraNode, DeviceNode, Lighting, Project, SceneNode, ScreenFit, Settings,
 } from '../schema/project'
@@ -82,7 +83,7 @@ export interface ResolvedDevice {
   position: Vec3
   rotation: Vec3
   scale: number
-  screen: { assetId: string | null; fit: ScreenFit; zoom: number; panX: number; panY: number }
+  screen: { assetId: string | null; fit: ScreenFit; zoom: number; panX: number; panY: number; mediaTime: number }
 }
 
 export interface ResolvedCamera {
@@ -115,7 +116,7 @@ export function resolveScene(project: Project, ch: ChannelMap, time: number): Re
         rotation: [g('rotation.x'), g('rotation.y'), g('rotation.z')],
         scale: g('scale'),
         screen: {
-          assetId: node.screen.assetId,
+          ...screenMediaAt(project, node.id, time),
           fit: node.screen.fit,
           zoom: g('screen.zoom'),
           panX: g('screen.panX'),

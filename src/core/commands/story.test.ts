@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { evaluateChannels } from '../animation/evaluate'
+import { evaluate, evaluateChannels } from '../animation/evaluate'
 import { createProject } from '../factory'
 import { musicGrid } from '../music/sync'
 import { parseProject, type MusicAnalysis, type Project } from '../schema/project'
@@ -159,5 +159,52 @@ describe('looks and migration', () => {
     expect(p.version).toBe(2)
     expect(p.shots).toEqual([])
     expect(p.music).toBeNull()
+  })
+})
+
+describe('shot media (several screens in one story)', () => {
+  const withMaterial = () => {
+    let p = fresh()
+    p = addAssetToProject(p, { id: 'home', kind: 'image', name: 'home.png', mime: 'image/png', width: 1080, height: 2400, regions: [{ x: 0.5, y: 0.3, size: 0.25, w: 0.95 }] }, { assign: true })
+    p = addAssetToProject(p, { id: 'take', kind: 'video', name: 'take.mp4', mime: 'video/mp4', width: 1080, height: 2400, duration: 6, trim: { in: 1, out: 4.5 }, poster: 4 }, { assign: false })
+    return p
+  }
+
+  it('swaps the screen at the cut and plays the take from its trimmed start', () => {
+    let p = withMaterial()
+    p = runCommand(p, 'set_shots', {
+      shots: [{ kind: 'hero', duration: 2 }, { kind: 'focus', duration: 5, media: { assetId: 'take' } }],
+    }).project
+    const dev = (t: number) => evaluate(p, t).devices[0].screen
+    expect(dev(1.9).assetId).toBe('home')
+    expect(dev(2.0).assetId).toBe('take')
+    expect(dev(2.0).mediaTime).toBeCloseTo(1)
+    expect(dev(3.5).mediaTime).toBeCloseTo(2.5)
+    // Past the trimmed end the take holds its last frame.
+    expect(dev(6.5).mediaTime).toBeLessThan(4.5)
+    expect(dev(6.5).mediaTime).toBeGreaterThan(4.4)
+  })
+
+  it('speed and from are honoured; unknown or audio media is rejected', () => {
+    let p = withMaterial()
+    p = runCommand(p, 'set_shots', { shots: [{ kind: 'focus', duration: 2, media: { assetId: 'take', from: 2, speed: 0.5 } }] }).project
+    expect(evaluate(p, 1).devices[0].screen.mediaTime).toBeCloseTo(2.5)
+    expect(() => runCommand(p, 'set_shots', { shots: [{ kind: 'hero', duration: 1, media: { assetId: 'nope' } }] })).toThrow(/No asset/)
+  })
+
+  it('the device default screen loops over the trimmed part', () => {
+    let p = withMaterial()
+    p = runCommand(p, 'set_screen', { assetId: 'take' }).project
+    expect(evaluate(p, 0).devices[0].screen.mediaTime).toBeCloseTo(1)
+    expect(evaluate(p, 3.6).devices[0].screen.mediaTime).toBeCloseTo(1.1)
+  })
+
+  it('storyboard from material: one shot per asset, in order, framed for readability', () => {
+    const p = runCommand(withMaterial(), 'create_storyboard', { assetIds: ['home', 'take'] }).project
+    expect(p.shots.map((s) => s.kind)).toEqual(['angle', 'focus', 'focus', 'hero'])
+    expect(p.shots.map((s) => s.media?.assetId)).toEqual(['home', 'home', 'take', 'take'])
+    expect(p.shots[1].region.y).toBe(0.3) // the still focuses its detected block
+    expect(p.shots[2].move).toBe('hold') // a take is shown steadily
+    expect(p.shots[2].media?.from).toBe(1)
   })
 })

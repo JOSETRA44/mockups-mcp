@@ -23,6 +23,11 @@ const ShotFields = {
   moveAmount: z.number().min(0).max(1).optional(),
   transition: z.number().min(0).max(4).optional().describe('Seconds the camera takes to arrive; 0 = cut'),
   ease: EaseId.optional().describe('Feel of the arrival (product = signature, easeInOut = smooth, spring = playful)'),
+  media: z.object({
+    assetId: z.string(),
+    from: z.number().min(0).optional().describe('Seconds into the video where the shot starts (default: the take\'s trimmed start)'),
+    speed: z.number().min(0.25).max(4).default(1),
+  }).strict().nullable().optional().describe('What the screen shows during this shot (a screenshot or a take); null = the device\'s default screen'),
 }
 
 const ShotInput = z.object({
@@ -33,7 +38,8 @@ const ShotInput = z.object({
 
 type ShotInputT = z.infer<typeof ShotInput>
 
-function makeShot(input: ShotInputT, ctx: CommandContext): Shot {
+/** Callers pass media already resolved (see resolveMedia): `from` is filled in. */
+function makeShot(input: Omit<ShotInputT, 'media'> & { media?: Shot['media'] }, ctx: CommandContext): Shot {
   const d = SHOT_DEFAULTS[input.kind]
   return {
     id: ctx.newId(),
@@ -49,6 +55,7 @@ function makeShot(input: ShotInputT, ctx: CommandContext): Shot {
     moveAmount: input.moveAmount ?? d.moveAmount,
     transition: input.transition ?? d.transition,
     ease: input.ease ?? d.ease,
+    ...(input.media !== undefined ? { media: input.media } : {}),
   }
 }
 
@@ -62,6 +69,18 @@ function commit(p: Project, shots: Shot[]) {
 
 const checkDevice = (p: Project, id?: string | null) => { if (id) findDevice(p, id) }
 
+type MediaInput = { assetId: string; from?: number; speed?: number } | null | undefined
+
+/** Validates a shot's media and fills `from` with the take's trimmed start. */
+function resolveMedia(p: Project, m: MediaInput): Shot['media'] | undefined {
+  if (m === undefined) return undefined
+  if (m === null) return null
+  const asset = p.assets[m.assetId]
+  if (!asset) throw new CommandError('NOT_FOUND', `No asset "${m.assetId}". Assets: ${Object.keys(p.assets).join(', ') || 'none'}`)
+  if (asset.kind === 'audio') throw new CommandError('INVALID_ARGS', `"${asset.name}" is audio; shot media must be an image or video.`)
+  return { assetId: m.assetId, from: m.from ?? asset.trim?.in ?? 0, speed: m.speed ?? 1 }
+}
+
 export const setShots = defineCommand({
   name: 'set_shots',
   summary: 'Set the camera story as a list of shots',
@@ -73,7 +92,7 @@ export const setShots = defineCommand({
   args: z.object({ shots: z.array(ShotInput).min(1).max(40) }),
   run: (p, a, ctx) => {
     a.shots.forEach((s) => checkDevice(p, s.deviceId))
-    const shots = a.shots.map((s) => makeShot(s, ctx))
+    const shots = a.shots.map((s) => makeShot({ ...s, media: resolveMedia(p, s.media) }, ctx))
     return { project: commit(p, shots), result: { shotIds: shots.map((s) => s.id) } }
   },
 })
@@ -92,7 +111,7 @@ export const addShot = defineCommand({
   run: (p, a, ctx) => {
     checkDevice(p, a.deviceId)
     const { index, time, ...input } = a
-    const shot = makeShot(input, ctx)
+    const shot = makeShot({ ...input, media: resolveMedia(p, input.media) }, ctx)
     let at = index ?? p.shots.length
     if (time !== undefined && index === undefined) {
       const k = p.shots.findIndex((s) => time >= s.start && time < s.start + s.duration)
@@ -127,6 +146,7 @@ export const updateShot = defineCommand({
     for (const k of ['deviceId', 'region', 'yaw', 'pitch', 'fill', 'move', 'moveAmount', 'transition', 'ease'] as const) {
       if (a[k] !== undefined) (s as Record<string, unknown>)[k] = a[k]
     }
+    if (a.media !== undefined) s.media = resolveMedia(p, a.media)
     if (a.duration !== undefined && a.duration !== s.duration) {
       const delta = a.duration - s.duration
       const next = shots[i + 1]
@@ -174,8 +194,11 @@ export const createStoryboard = defineCommand({
   description:
     'Creates an intro angle, focus shots on the UI blocks detected in the screenshot (cards, buttons, top to bottom; spread evenly when none were detected), and a hero ending. ' +
     'With music, each shot lasts `barsPerShot` bars so changes land on the music; otherwise `secondsPerShot`. ' +
-    'Pass `regions` to aim the focus shots at specific UI (recommended: look at the screenshot first).',
+    'Pass `regions` to aim the focus shots at specific UI (recommended: look at the screenshot first). ' +
+    'Pass `assetIds` (captured screenshots/takes, in story order) to build the story from material: one shot per asset showing it, ' +
+    'focusing a screenshot\'s main UI block or playing a take from its trimmed start.',
   args: z.object({
+    assetIds: z.array(z.string()).max(12).optional().describe('Material in story order: each becomes a shot that shows it'),
     focusCount: z.number().int().min(0).max(8).optional().describe('Number of focus shots (default: detected UI blocks, else 3)'),
     regions: z.array(Region).max(8).optional(),
     barsPerShot: z.number().int().min(1).max(16).default(2),
@@ -193,11 +216,34 @@ export const createStoryboard = defineCommand({
     const regions = a.regions ?? (detected.length
       ? detected.slice(0, count)
       : Array.from({ length: count }, (_, i) => ({ x: 0.5, y: +((i + 0.5) / count * 0.9 + 0.05).toFixed(3), size: 0.38, w: 0.95 })))
-    const inputs: ShotInputT[] = [
-      { kind: 'angle', duration: shotLen, deviceId: a.deviceId },
-      ...regions.map((region) => ({ kind: 'focus' as const, duration: shotLen, region, deviceId: a.deviceId })),
-      { kind: 'hero', duration: shotLen, deviceId: a.deviceId },
-    ]
+    const material = (a.assetIds ?? []).map((id) => {
+      const asset = p.assets[id]
+      if (!asset) throw new CommandError('NOT_FOUND', `No asset "${id}".`)
+      if (asset.kind === 'audio') throw new CommandError('INVALID_ARGS', `"${asset.name}" is audio, not screen material.`)
+      return asset
+    })
+    const inputs: (Omit<ShotInputT, 'media'> & { media?: Shot['media'] })[] = material.length
+      ? [
+          // Open wide on the first piece of material, then one readable shot per asset, end on the hero.
+          { kind: 'angle', duration: shotLen, deviceId: a.deviceId, media: resolveMedia(p, { assetId: material[0].id }) },
+          ...material.map((asset): Omit<ShotInputT, 'media'> & { media?: Shot['media'] } => {
+            const isTake = asset.kind === 'video'
+            // A take reads best almost full-screen; a still focuses its most prominent block.
+            const region = isTake || !asset.regions?.length ? { x: 0.5, y: 0.5, size: 0.86, w: 1 } : asset.regions[0]
+            const takeLen = isTake ? Math.max(0.5, (asset.trim?.out ?? asset.duration ?? shotLen) - (asset.trim?.in ?? 0)) : shotLen
+            return {
+              kind: 'focus', region, deviceId: a.deviceId, move: isTake ? 'hold' : 'drift',
+              duration: isTake ? Math.max(shotLen, Math.min(takeLen, shotLen * 2)) : shotLen,
+              media: resolveMedia(p, { assetId: asset.id }),
+            }
+          }),
+          { kind: 'hero', duration: shotLen, deviceId: a.deviceId, media: resolveMedia(p, { assetId: material[material.length - 1].id }) },
+        ]
+      : [
+          { kind: 'angle', duration: shotLen, deviceId: a.deviceId },
+          ...regions.map((region) => ({ kind: 'focus' as const, duration: shotLen, region, deviceId: a.deviceId })),
+          { kind: 'hero', duration: shotLen, deviceId: a.deviceId },
+        ]
     const shots = inputs.map((s) => makeShot(s, ctx))
     return { project: commit(p, shots), result: { shotIds: shots.map((s) => s.id), secondsPerShot: +shotLen.toFixed(3) } }
   },

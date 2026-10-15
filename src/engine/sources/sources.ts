@@ -2,7 +2,7 @@ import { ALL_FORMATS, BlobSource, CanvasSink, Input } from 'mediabunny'
 import { CanvasTexture, LinearFilter, SRGBColorSpace, Texture, VideoTexture } from 'three'
 import type { Asset } from '@/core/schema/project'
 import { getBlob } from '@/media/assetStore'
-import { videoTimeAt, type ScreenSource, type SourceProvider } from './types'
+import type { ScreenSource, SourceProvider } from './types'
 
 function configure<T extends Texture>(tex: T): T {
   tex.colorSpace = SRGBColorSpace
@@ -48,9 +48,10 @@ export async function createPreviewVideoSource(blob: Blob, asset: Asset): Promis
     texture,
     width: video.videoWidth,
     height: video.videoHeight,
-    prepare(t, playing) {
-      const vt = videoTimeAt(t, duration)
-      if (playing) {
+    prepare(mediaTime, playing) {
+      const vt = Math.min(mediaTime, Math.max(0, duration - 0.01))
+      // Takes hold their last frame: near the end we seek instead of playing (no restart).
+      if (playing && vt < duration - 0.05) {
         if (video.paused) void video.play().catch(() => {})
         if (Math.abs(video.currentTime - vt) > 0.2) video.currentTime = vt
       } else {
@@ -85,8 +86,8 @@ export async function createExactVideoSource(blob: Blob, asset: Asset): Promise<
     texture,
     width: track.displayWidth,
     height: track.displayHeight,
-    async prepare(t) {
-      const vt = videoTimeAt(t, duration)
+    async prepare(mediaTime) {
+      const vt = Math.min(mediaTime, Math.max(0, duration - 1e-3))
       if (Math.abs(vt - lastVt) < 1e-6) return
       lastVt = vt
       const frame = await sink.getCanvas(vt)

@@ -137,7 +137,8 @@ export class Engine {
     for (const d of r.devices) {
       if (!d.screen.assetId) continue
       const src = this.sources?.get(d.screen.assetId)
-      if (src) jobs.push(src.prepare(r.time, playing))
+      // Media time is resolved in core (per-shot media, trims, loops); sources just seek.
+      if (src) jobs.push(src.prepare(d.screen.mediaTime, playing))
     }
     return Promise.all(jobs)
   }

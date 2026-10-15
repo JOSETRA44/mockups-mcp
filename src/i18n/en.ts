@@ -67,6 +67,8 @@ const en = {
     arrival: 'Arrival', arrivalTime: 'Arrival time',
     transitions: { cut: 'Cut', quick: 'Quick', smooth: 'Smooth', slow: 'Glide' },
     arrivalHint: 'The camera lands at the start of the shot. With music, starts snap to bars so arrivals hit the beat.',
+    screen: 'Screen', deviceScreen: 'Device screen',
+    fitTakeHint: 'The take is retimed to fit this shot so its result lands before the cut.',
     earlier: 'Move earlier', later: 'Move later', duplicate: 'Duplicate', advanced: 'Advanced',
     bake: 'Convert shots to keyframes', bakeHint: 'Turns the whole camera story into editable keyframe curves.',
   },
@@ -86,6 +88,13 @@ const en = {
     shiftBar: 'Shift bar start', remove: 'Remove song',
   },
   looks: { title: 'Look', match: 'Match media' },
+  capture: {
+    title: 'Capture from a device', open: 'Open app', close: 'Close session', boot: 'start emulator',
+    noTargets: 'No phone or emulator found', snap: 'Snap', record: 'Record', stop: 'Stop & save',
+    back: 'Back', type: 'Type and press Enter…', labelPrompt: 'What does it show? (label)', saved: 'Added to your material',
+    cleanHint: 'The status bar switches to a clean 9:41 while capturing and is restored when you close.',
+    needsServer: 'Capturing from a phone or emulator needs the Unicali server: run "npm run serve" and open the editor from it.',
+  },
   export: {
     title: 'Export video', format: 'Format', mp4: 'MP4 (H.264)', webm: 'WebM (VP9, supports transparency)',
     png: 'PNG sequence (.zip)', resolution: 'Resolution', fps: 'Frame rate', quality: 'Quality',

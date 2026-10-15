@@ -54,8 +54,9 @@ export function useShotThumbnails(project: Project): Record<string, string> {
           let url = cache.get(key)
           if (!url) {
             // Motions are excluded so the card shows the framing, not a mid-entrance pose.
-            const still: Project = { ...project, clips: [], shots: [{ ...shot, start: 0, duration: 1, transition: 0 }] }
-            const r = evaluate(still, Math.min(0.5, holds[i] - shot.start))
+            // Same shot at its hold moment (so a take shows what it holds on), without motions.
+            const still: Project = { ...project, clips: [], shots: [{ ...shot, start: 0, transition: 0 }] }
+            const r = evaluate(still, Math.max(0, holds[i] - shot.start))
             await e.prepareSources(r, false)
             e.render(r)
             url = URL.createObjectURL(await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.8 }))

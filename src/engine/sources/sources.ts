@@ -1,4 +1,4 @@
-import { ALL_FORMATS, BlobSource, CanvasSink, Input } from 'mediabunny'
+import { ALL_FORMATS, BlobSource, CanvasSink, Input, type WrappedCanvas } from 'mediabunny'
 import { CanvasTexture, LinearFilter, SRGBColorSpace, Texture, VideoTexture } from 'three'
 import type { Asset } from '@/core/schema/project'
 import { getBlob } from '@/media/assetStore'
@@ -77,11 +77,38 @@ export async function createExactVideoSource(blob: Blob, asset: Asset): Promise<
   const input = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS })
   const track = await input.getPrimaryVideoTrack()
   if (!track) throw new Error(`${asset.name} has no video track`)
-  const sink = new CanvasSink(track, { poolSize: 2 })
+  const sink = new CanvasSink(track, { poolSize: 3 })
   const duration = asset.duration ?? (await track.computeDuration())
   const first = await sink.getCanvas(await track.getFirstTimestamp())
   const texture = configure(new CanvasTexture(first?.canvas ?? new OffscreenCanvas(2, 2)))
   let lastVt = -1
+
+  // Exports ask for frames in order: decode forward with one cursor instead of seeking
+  // from the previous keyframe on every frame. Jumps (cuts, loops) restart the cursor.
+  let cursor: AsyncGenerator<WrappedCanvas, void, unknown> | null = null
+  let current: WrappedCanvas | null = null
+  let lookahead: WrappedCanvas | null = null
+  const frameAt = async (vt: number) => {
+    const sequential = cursor && current && vt >= current.timestamp - 1e-6 && vt - current.timestamp < 1
+    if (!sequential) {
+      await cursor?.return(undefined)
+      current = await sink.getCanvas(vt)
+      cursor = sink.canvases((current?.timestamp ?? vt) + 1e-4)
+      lookahead = null
+    }
+    for (;;) {
+      if (!lookahead) {
+        const r = await cursor!.next()
+        if (r.done) break
+        lookahead = r.value
+      }
+      if (lookahead.timestamp > vt + 1e-6) break
+      current = lookahead
+      lookahead = null
+    }
+    return current
+  }
+
   return {
     texture,
     width: track.displayWidth,
@@ -90,7 +117,7 @@ export async function createExactVideoSource(blob: Blob, asset: Asset): Promise<
       const vt = Math.min(mediaTime, Math.max(0, duration - 1e-3))
       if (Math.abs(vt - lastVt) < 1e-6) return
       lastVt = vt
-      const frame = await sink.getCanvas(vt)
+      const frame = await frameAt(vt)
       if (frame) {
         texture.image = frame.canvas
         texture.needsUpdate = true

@@ -18,6 +18,7 @@ import type { ShotKind } from '@/core/schema/project'
 import { SHOT_ICONS } from '../common/shotIcons'
 import { notify } from '../common/toast'
 import { useBlobUrl } from '../common/useBlobUrl'
+import { CapturePanel } from './CapturePanel'
 
 type Tab = 'device' | 'media' | 'motion'
 
@@ -169,6 +170,11 @@ function MediaPanel() {
         <span className="text-[11px] text-ink-400">{t('media.formats')}</span>
       </button>
       <input ref={inputRef} type="file" accept={ACCEPTED} multiple hidden onChange={(e) => void onFiles(e.target.files)} data-testid="media-input" />
+
+      <div>
+        <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-400">{t('capture.title')}</h3>
+        <CapturePanel />
+      </div>
 
       {Object.keys(assets).length > 0 && (
         <div>

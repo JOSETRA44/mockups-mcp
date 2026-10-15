@@ -2,7 +2,8 @@ import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, ArrowRight, Copy, KeyRound, Music2, Trash2, Wand2 } from 'lucide-react'
 import { LOOKS, lookFromPalette, projectPalette } from '@/core/looks'
-import type { ShotKind, ShotMove } from '@/core/schema/project'
+import type { Asset, Shot, ShotKind, ShotMove } from '@/core/schema/project'
+import { useBlobUrl } from '../common/useBlobUrl'
 import { useEditor } from '@/state/editor'
 import { usePlayback } from '@/state/playback'
 import { Button, Section, Segmented, Select, Slider } from '../common/controls'
@@ -54,7 +55,7 @@ export function ShotInspector({ id }: { id: string }) {
         <p className="text-[11px] leading-relaxed text-ink-400">{t(`shots.kindHints.${shot.kind}`)}</p>
         {shot.kind === 'focus' ? (
           <>
-            <ScreenRegionPicker deviceId={shot.deviceId} region={shot.region} onChange={(region) => set({ region })} />
+            <ScreenRegionPicker deviceId={shot.deviceId} assetId={shot.media?.assetId} region={shot.region} onChange={(region) => set({ region })} />
             <Slider label={t('shots.regionHeight')} value={shot.region.size} min={0.08} max={1.2} onChange={(v) => set({ region: { ...shot.region, size: v } })} />
             <Slider label={t('shots.regionWidth')} value={shot.region.w ?? shot.region.size} min={0.08} max={1.2} onChange={(v) => set({ region: { ...shot.region, w: v } })} />
           </>
@@ -72,6 +73,8 @@ export function ShotInspector({ id }: { id: string }) {
           />
         )}
       </Section>
+
+      <ScreenMediaPicker shot={shot} onPick={(media) => set({ media })} />
 
       <Section title={t('shots.motion')}>
         <Segmented
@@ -246,5 +249,42 @@ export function LooksSection() {
         })}
       </div>
     </Section>
+  )
+}
+
+/** What the screen shows during the shot: the device default or any still/take from the material. */
+function ScreenMediaPicker({ shot, onPick }: { shot: Shot; onPick: (media: { assetId: string; fitTake?: boolean } | null) => void }) {
+  const { t } = useTranslation()
+  const assets = useEditor((s) => s.project.assets)
+  const visual = Object.values(assets).filter((a) => a.kind !== 'audio')
+  if (!visual.length) return null
+  const current = shot.media?.assetId ?? null
+  return (
+    <Section title={t('shots.screen')}>
+      <div className="grid grid-cols-4 gap-1.5">
+        <button
+          onClick={() => onPick(null)}
+          className={clsx('flex aspect-[9/16] items-center justify-center rounded-md border text-center text-[9px] leading-tight', current === null ? 'border-accent text-white' : 'border-ink-700 text-ink-400 hover:border-ink-500')}
+        >
+          {t('shots.deviceScreen')}
+        </button>
+        {visual.map((a) => (
+          <MaterialTile key={a.id} asset={a} active={current === a.id} onClick={() => onPick({ assetId: a.id, fitTake: a.kind === 'video' })} />
+        ))}
+      </div>
+      {shot.media?.fitTake && <p className="text-[10px] text-ink-400">{t('shots.fitTakeHint')}</p>}
+    </Section>
+  )
+}
+
+function MaterialTile({ asset, active, onClick }: { asset: Asset; active: boolean; onClick: () => void }) {
+  const url = useBlobUrl(asset.id)
+  return (
+    <button onClick={onClick} title={asset.source?.label ?? asset.name} className={clsx('relative aspect-[9/16] overflow-hidden rounded-md border bg-ink-950', active ? 'border-accent ring-1 ring-accent' : 'border-ink-700 hover:border-ink-500')}>
+      {url && (asset.kind === 'image'
+        ? <img src={url} alt="" className="h-full w-full object-cover" draggable={false} />
+        : <video src={`${url}#t=${asset.poster ?? 0.1}`} muted preload="metadata" className="h-full w-full object-cover" />)}
+      {asset.kind === 'video' && <span className="absolute bottom-0.5 right-0.5 rounded bg-black/70 px-1 text-[8px] text-white">▶</span>}
+    </button>
   )
 }

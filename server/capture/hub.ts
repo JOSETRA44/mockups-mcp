@@ -92,6 +92,23 @@ export class CaptureHub {
     return { asset: out.asset, revision: out.revision, performed: result.performed }
   }
 
+  /** Manual recording (the editor's Record button): whatever happens on the device is the take. */
+  async recordStart(id: string) {
+    await this.get(id).startRecording()
+    return { recording: true }
+  }
+
+  async recordStop(id: string, projectId: string, label: string) {
+    const s = this.get(id)
+    const path = await s.stopRecording()
+    const out = await this.workspace.importMedia(projectId, path, {
+      name: `${label}.mp4`,
+      assign: false,
+      extra: { source: { kind: s.kind, target: s.target, app: s.app ?? undefined, label, capturedAt: Date.now() } },
+    }, 'capture')
+    return { asset: out.asset, revision: out.revision }
+  }
+
   async close(id: string) {
     const s = this.get(id)
     this.sessions.delete(id)

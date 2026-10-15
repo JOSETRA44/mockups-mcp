@@ -1,6 +1,6 @@
 import {
-  AdditiveBlending, BoxGeometry, Color, CylinderGeometry, ExtrudeGeometry, Group, Mesh,
-  MeshBasicMaterial, MeshPhysicalMaterial, MeshStandardMaterial, PlaneGeometry, Shape, ShapeGeometry,
+  AdditiveBlending, BoxGeometry, ShaderMaterial, Color, CylinderGeometry, ExtrudeGeometry, Group, Mesh,
+  MeshBasicMaterial, MeshPhysicalMaterial, PlaneGeometry, Shape, ShapeGeometry,
   type Material,
 } from 'three'
 import { screenSurfaceZ, type DeviceFinish, type DeviceSpec } from '@/core/devices/registry'
@@ -65,11 +65,32 @@ export function buildProceduralPhone(spec: DeviceSpec): DeviceObject {
   screenMesh.renderOrder = 1
   group.add(screenMesh)
 
-  // Reflection layer: black + additive blending = only the specular reflection is added.
-  const glareMat = new MeshStandardMaterial({
-    color: '#000000', roughness: 0.22, metalness: 0, transparent: true, blending: AdditiveBlending,
-    // Additive: opacity scales the reflection (envMapIntensity is ignored with scene.environment).
-    depthWrite: false, opacity: 0.22,
+  // Glass sheen: additive, Fresnel-weighted. Head-on (close-ups, focus shots) it is almost nil,
+  // so the app's colours stay exact; at grazing angles a soft sheen keeps the glass reading as glass.
+  const glareMat = new ShaderMaterial({
+    transparent: true,
+    blending: AdditiveBlending,
+    depthWrite: false,
+    toneMapped: false,
+    uniforms: { strength: { value: 0.42 } },
+    vertexShader: `
+      varying vec3 vN; varying vec3 vV; varying vec2 vUv;
+      void main() {
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vN = normalize(normalMatrix * normal);
+        vV = normalize(-mv.xyz);
+        vUv = uv;
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `
+      uniform float strength;
+      varying vec3 vN; varying vec3 vV; varying vec2 vUv;
+      void main() {
+        float f = pow(1.0 - clamp(dot(normalize(vN), normalize(vV)), 0.0, 1.0), 4.0);
+        // A faint diagonal falloff so the sheen is not flat across the glass.
+        float band = 0.65 + 0.35 * smoothstep(0.0, 1.0, vUv.x * 0.6 + vUv.y * 0.4);
+        gl_FragColor = vec4(vec3(f * band * strength), 1.0);
+      }`,
   })
   const glare = new Mesh(new ShapeGeometry(roundedRect(W - 0.014, H - 0.014, R - 0.007), 32), glareMat)
   glare.position.z = screenSurfaceZ(spec) + 0.0008

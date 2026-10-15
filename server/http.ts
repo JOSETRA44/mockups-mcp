@@ -336,6 +336,8 @@ export async function startServer(config: ServerConfig): Promise<UnicaliServer> 
       }
       if (action === 'still') return send(res, 200, await capture.still(sid, String(body.projectId), String(body.label ?? 'Screen'), !!body.assign))
       if (action === 'take') return send(res, 200, await capture.take(sid, String(body.projectId), body.take))
+      if (action === 'record-start') return send(res, 200, await capture.recordStart(sid))
+      if (action === 'record-stop') return send(res, 200, await capture.recordStop(sid, String(body.projectId), String(body.label ?? 'Take')))
     }
     throw new HttpError(404, 'NOT_FOUND', 'No such capture route')
   }

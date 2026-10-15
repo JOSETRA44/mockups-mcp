@@ -211,7 +211,7 @@ Every command is available as: an MCP tool (same name, plus optional `projectId`
 
 | Arg | Type | Required | Notes |
 |---|---|---|---|
-| `shots` | { kind, duration, deviceId, region, yaw, pitch, fill, move, moveAmount, transition, ease }[] | yes |  |
+| `shots` | { kind, duration, deviceId, region, yaw, pitch, fill, move, moveAmount, transition, ease, media }[] | yes |  |
 | `shots[].kind` | `"hero"` \| `"focus"` \| `"angle"` \| `"wide"` \| `"orbit"` | yes | hero (whole device, front), focus (a screen region), angle (3/4 beauty view), wide (small, lots of space), orbit (camera circles) |
 | `shots[].duration` | number | yes | Seconds — ≥ 0.2, ≤ 60 |
 | `shots[].deviceId` | string \| null |  |  |
@@ -223,6 +223,7 @@ Every command is available as: an MCP tool (same name, plus optional `projectId`
 | `shots[].moveAmount` | number |  | ≥ 0, ≤ 1 |
 | `shots[].transition` | number |  | Seconds the camera takes to arrive; 0 = cut — ≥ 0, ≤ 4 |
 | `shots[].ease` | `"linear"` \| `"easeIn"` \| `"easeOut"` \| `"easeInOut"` \| `"product"` \| `"expoOut"` \| `"backOut"` \| `"spring"` |  | Feel of the arrival (product = signature, easeInOut = smooth, spring = playful) |
+| `shots[].media` | { assetId, from, speed, fitTake } \| null |  | What the screen shows during this shot (a screenshot or a take); null = the device's default screen |
 
 ## `add_shot`
 
@@ -243,6 +244,7 @@ Every command is available as: an MCP tool (same name, plus optional `projectId`
 | `moveAmount` | number |  | ≥ 0, ≤ 1 |
 | `transition` | number |  | Seconds the camera takes to arrive; 0 = cut — ≥ 0, ≤ 4 |
 | `ease` | `"linear"` \| `"easeIn"` \| `"easeOut"` \| `"easeInOut"` \| `"product"` \| `"expoOut"` \| `"backOut"` \| `"spring"` |  | Feel of the arrival (product = signature, easeInOut = smooth, spring = playful) |
+| `media` | { assetId, from, speed, fitTake } \| null |  | What the screen shows during this shot (a screenshot or a take); null = the device's default screen |
 
 ## `update_shot`
 
@@ -263,6 +265,7 @@ Every command is available as: an MCP tool (same name, plus optional `projectId`
 | `moveAmount` | number |  | ≥ 0, ≤ 1 |
 | `transition` | number |  | Seconds the camera takes to arrive; 0 = cut — ≥ 0, ≤ 4 |
 | `ease` | `"linear"` \| `"easeIn"` \| `"easeOut"` \| `"easeInOut"` \| `"product"` \| `"expoOut"` \| `"backOut"` \| `"spring"` |  | Feel of the arrival (product = signature, easeInOut = smooth, spring = playful) |
+| `media` | { assetId, from, speed, fitTake } \| null |  | What the screen shows during this shot (a screenshot or a take); null = the device's default screen |
 
 ## `remove_shot`
 
@@ -284,10 +287,11 @@ Every command is available as: an MCP tool (same name, plus optional `projectId`
 
 ## `create_storyboard`
 
-**Build a ready-to-tweak camera story in one step.** Creates an intro angle, focus shots on the UI blocks detected in the screenshot (cards, buttons, top to bottom; spread evenly when none were detected), and a hero ending. With music, each shot lasts `barsPerShot` bars so changes land on the music; otherwise `secondsPerShot`. Pass `regions` to aim the focus shots at specific UI (recommended: look at the screenshot first).
+**Build a ready-to-tweak camera story in one step.** Creates an intro angle, focus shots on the UI blocks detected in the screenshot (cards, buttons, top to bottom; spread evenly when none were detected), and a hero ending. With music, each shot lasts `barsPerShot` bars so changes land on the music; otherwise `secondsPerShot`. Pass `regions` to aim the focus shots at specific UI (recommended: look at the screenshot first). Pass `assetIds` (captured screenshots/takes, in story order) to build the story from material: one shot per asset showing it, focusing a screenshot's main UI block or playing a take from its trimmed start.
 
 | Arg | Type | Required | Notes |
 |---|---|---|---|
+| `assetIds` | string[] |  | Material in story order: each becomes a shot that shows it |
 | `focusCount` | integer |  | Number of focus shots (default: detected UI blocks, else 3) — ≥ 0, ≤ 8 |
 | `regions` | { x, y, size, w }[] |  |  |
 | `regions[].x` | number | yes | Centre, 0 = left edge of the screen — ≥ 0, ≤ 1 |

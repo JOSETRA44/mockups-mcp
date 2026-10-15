@@ -2,7 +2,8 @@
 
 Animated 3D device mockups for app promo videos — in the browser, and fully drivable by AI agents.
 
-Drop a screenshot or screen recording onto a 3D phone, tell the story as **shots** (hero, focus
+**Capture** clean screenshots and directed takes straight from a running Android app or web page
+(or drop your own files), tell the story as **shots** (hero, focus
 on a feature, angle, orbit), add a **song** and fit the story to its bars and sections, pick a
 **look**, preview in real time, and export MP4 (with music) / WebM with alpha / PNG sequences. Everything a human can do in the editor, an agent can
 do through **MCP**, the **CLI** or the **HTTP API** — and both can work on the same project
@@ -22,7 +23,9 @@ Requires Node 20+ and Google Chrome (used for headless rendering and H.264 expor
 
 ## For humans
 
-1. **Media**: drop a screenshot or screen recording. Cards and buttons are detected automatically.
+1. **Media**: drop a screenshot or screen recording — or **Capture from a device**: pick a phone or
+   emulator and an app, tap and scroll on the live screen, then **Snap** clean stills or **Record**
+   takes (the status bar switches to a clean 9:41 while capturing). Cards and buttons are detected.
 2. **Music**: drop a song on the *Music* lane. Tempo, bars and sections (intro, build, peak) are
    detected and drawn as a beat grid across the timeline.
 3. **Shots**: press **Create camera story** (angle → focus on each detected block → hero), or add
@@ -42,8 +45,8 @@ Shortcuts: Space play/pause · ←/→ frame step (Shift = 1 s) · Home/End · C
 
 - **Claude Code in this repo**: the `unicali` MCP server is configured in `.mcp.json` and the
   `unicali-mockups` skill in `.claude/skills/` teaches the workflow. Just ask:
-  *"make a reel from ~/Desktop/home.png and ~/Music/track.mp3: open on the app, show the balance,
-  then the transfer button, end on the phone, on the beat"*.
+  *"make a 15-second ad for com.mantra.unsap on my phone showing how the grade simulator works,
+  with ~/Downloads/song.mp3"* — the agent explores the app, shoots takes, cuts them to the music and exports.
 - **Any MCP client**: `node bin/unicali.mjs mcp-config` prints the config to paste.
 - **Scripts / CI**: `node bin/unicali.mjs help`.
 

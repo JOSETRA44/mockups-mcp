@@ -1,6 +1,6 @@
 ---
 name: unicali-mockups
-description: Create and edit animated 3D device mockup videos (app promo videos, reels, TikToks, App Store previews, landing-page loops) with Unicali Mockups — put a screenshot or screen recording on a 3D phone, tell the story as camera shots (hero, focus on a feature, angle, orbit), sync it to a song's beats and sections, look at rendered frames, and export MP4/WebM/PNG with music. Use this skill whenever the user wants a phone/device mockup video, an animated app showcase, a video from a script/storyboard plus screenshots, a promo cut to music, zooms onto parts of an app screen, or mentions Unicali, its MCP tools (create_project, set_shots, fit_to_music, render_frames, export_video...) or its CLI — even if they only say "make a promo video from this screenshot and this song".
+description: Create and edit animated 3D device mockup videos (app promo videos, reels, TikToks, App Store previews, landing-page loops) with Unicali Mockups — capture clean screenshots and directed takes straight from a running Android app or web page, put them on a 3D phone, tell the story as camera shots (hero, focus on a feature, angle, orbit), sync it to a song's beats and sections, look at rendered frames, and export MP4/WebM/PNG with music. Use this skill whenever the user wants a phone/device mockup video, an animated app showcase, a video from a script/storyboard plus screenshots, a promo cut to music, zooms onto parts of an app screen, or mentions Unicali, its MCP tools (create_project, set_shots, fit_to_music, render_frames, export_video...) or its CLI — even if they only say "make a promo video from this screenshot and this song".
 ---
 
 # Unicali Mockups
@@ -30,9 +30,13 @@ project live in the browser editor (URL from `create_project` / `unicali_status`
 
 ## The loop that produces good videos
 
-1. **Set up**: `create_project`, then `import_media` with the absolute path of the screenshot
-   or recording (UI blocks like cards and buttons are detected), then `import_media` with the song
-   (tempo and sections are returned — note the section starts and energies).
+1. **Set up**: `create_project`, then get material:
+   - from files: `import_media` (screenshots/recordings; UI blocks are detected), or
+   - **from the running app** (brief + app, no files): `capture_open` → explore with
+     `capture_look`/`capture_act` → one `capture_take` per story beat (plus `capture_still` where a
+     static screen is enough) → `review_material` → `capture_close`. Read `references/capture.md`
+     first: it holds the take-direction rules that make material look deliberate.
+   Then `import_media` the song (tempo and sections are returned).
 2. **Propose the story**:
    - quick: `create_storyboard` (angle → focus on each detected UI block → hero), or
    - from a script/brief: `set_shots` with one shot per story beat (see below).
@@ -67,6 +71,7 @@ looking at the screenshot yourself (UV from the top-left). Full-width UI wants `
 
 ## Reference files
 
+- `references/capture.md`: capturing from Android/web, take direction, review, pitfalls.
 - `references/music.md`: how sync works, choosing the song start, accents, fixing the beat grid.
 - `references/camera-direction.md`: pacing, holds, easing and shot vocabulary for ads.
 - `references/recipes.md`: complete worked examples (script + song, transparent loop, multi-device).

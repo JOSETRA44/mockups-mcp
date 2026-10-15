@@ -81,6 +81,35 @@ run(project, args, ctx) → { project, result } }`. Consumers:
 Arguments are validated strictly; errors are `CommandError` with a code and an agent-readable
 message. `runBatch` applies several commands atomically.
 
+## Capture (material from running apps)
+
+```
+server/capture/
+  types.ts        CaptureSource / CaptureSession / Recording — the only contract
+  hub.ts          sessions; every still/take ends in Workspace.importMedia
+  take.ts         source-agnostic take runner: relaunch → setup → rehearsal → record
+  android/        ADB: UIAutomator semantics, screencap, screenrecord, SystemUI demo mode
+  web/            Playwright at a phone viewport; CDP screencast frames
+src/core/capture/ steps (zod), UI tree parsing + target resolution, motion trim — pure
+```
+
+- **Decoupled by design**: sources only produce files plus `Asset.source` metadata; the editor,
+  renderer and exporter never know where pixels came from. Adding iOS or desktop means one new
+  `CaptureSource`.
+- **Takes are directed, not recorded**: the runner relaunches the app, runs setup off camera,
+  rehearses the on-camera steps (resolving semantic targets to points and measuring how long each
+  screen takes to settle), then records at rehearsed timing so no lookups appear as dead time.
+- **Clean presentation**: Android demo mode (9:41, full battery/signal, no notifications); the
+  device's original setting is persisted to disk and restored on close, shutdown or next session.
+- **Analysis**: takes are analysed in the headless renderer — motion curve → `trim`, settled
+  `moments`, `poster`; UI regions and palette come from the poster. Variable-frame-rate recordings
+  end on their last change, which is treated as the settled result.
+- **Encoding**: Android records device-side H.264; web frames are encoded by the renderer
+  (WebCodecs + Mediabunny), so no external binaries are needed.
+- **Per-shot media**: `Shot.media` (`assetId`, `from`, `speed`, `fitTake`) lets one story use many
+  screens and takes; media time is resolved in core (`src/core/shots/media.ts`) and every screen
+  asset is preloaded before rendering (`screenAssetIds`).
+
 ## Persistence and collaboration
 
 - **Standalone** (static hosting or `npm run dev` alone): projects and blobs in IndexedDB.

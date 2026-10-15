@@ -28,7 +28,8 @@ npm run docs         # regenerate docs/reference/* and the skill's references fr
    Shots, music sync and accents are all resolved in core before the engine sees anything.
 5. **The project JSON is a contract.** Changing its shape means bumping `PROJECT_VERSION` and
    adding a migration in `src/core/schema/project.ts`.
-6. **The server binds to 127.0.0.1 only.** It reads and writes local files.
+6. **The server binds to 127.0.0.1 only.** It reads and writes local files and drives devices.
+   Capture must leave devices as it found them (demo mode restored, recordings stopped, no data cleared).
 7. **Analysis results are data.** Music analysis, palettes and UI regions are computed once on
    import and stored in the document, never recomputed implicitly during evaluation.
 
@@ -45,6 +46,7 @@ npm run docs         # regenerate docs/reference/* and the skill's references fr
 | A device | `src/core/devices/registry.ts` (+ a builder in `src/engine/devices/` for new shapes) | |
 | An HTTP route | `server/http.ts`, client method in `server/client.ts` | |
 | An MCP tool that is not a command | `server/mcp.ts` (uses the client only) | extend `e2e/mcp.spec.ts` |
+| A capture source (iOS, desktop…) | implement `CaptureSource`/`CaptureSession` in `server/capture/<kind>/`, register in `hub.ts` | follow `e2e/capture.spec.ts` (web source runs without devices) |
 
 Details and examples: `docs/extending.md`.
 

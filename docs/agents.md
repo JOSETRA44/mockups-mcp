@@ -51,6 +51,7 @@ Copy `.claude/skills/unicali-mockups/` to `~/.claude/skills/` (personal) or anot
 |---|---|
 | Session | `unicali_status`, `get_catalog`, `list_projects`, `create_project`, `use_project`, `get_project`, `delete_project` |
 | Media | `import_media` (screenshot/recording → device screen with detected UI regions; song → music track with tempo/bars/sections) |
+| Capture | `capture_targets`, `capture_open` (android / web), `capture_look`, `capture_act`, `capture_still`, `capture_take`, `capture_close`, `review_material` |
 | Story | `set_shots`, `add_shot`, `update_shot`, `move_shot`, `remove_shot`, `create_storyboard`, `bake_shots` |
 | Music | `fit_to_music`, `set_music` (start, volume, fades, accents), `set_tempo` (grid corrections), `remove_music` |
 | Look | `apply_look` (incl. `match-media`), `set_background`, `set_lighting` |
@@ -64,6 +65,17 @@ text names the bad argument and the valid options, so agents can self-correct. U
 arguments are rejected (no silent typos).
 
 Resources: `unicali://catalog`. Prompts: `app-promo` (guided promo workflow).
+
+### The brief-to-ad loop (no files needed)
+
+```
+create_project → capture_open(app) → capture_look/capture_act (explore)
+→ capture_take per story beat (+ capture_still) → review_material → capture_close
+→ import_media(song) → set_shots with per-shot media (fitTake) → fit_to_music
+→ render_frames → adjust → export_video
+```
+
+See `.claude/skills/unicali-mockups/references/capture.md` for take direction.
 
 ### The script-to-video loop
 
@@ -107,6 +119,15 @@ All JSON, loopback only. Errors: `{ "error": { "code", "message" } }` with 400/4
 | `POST /api/projects/:id/import` | `{ path, deviceId?, assign?, name? }` → `{ asset, revision }` |
 | `PUT /api/projects/:id/assets?name=x.png[&register=1]` | raw bytes → `{ asset }` |
 | `GET /api/assets/:assetId` | file bytes (supports `Range`) |
+| `GET /api/capture/targets` | → `{ targets: [{ id, kind, name, state }] }` |
+| `POST /api/capture/sessions` | `{ kind, target?, app?, install?, clean? }` → look `{ sessionId, elements, png, … }` |
+| `GET /api/capture/sessions/:sid/look` | → look (screenshot base64 + elements) |
+| `POST /api/capture/sessions/:sid/act` | `{ step, look? }` → look after the UI settles |
+| `POST /api/capture/sessions/:sid/still` | `{ projectId, label }` → `{ asset }` |
+| `POST /api/capture/sessions/:sid/take` | `{ projectId, take }` → `{ asset, performed }` |
+| `POST /api/capture/sessions/:sid/record-start` · `record-stop` | manual recording (`{ projectId, label }` on stop) |
+| `DELETE /api/capture/sessions/:sid` | restore the device and close |
+| `POST /api/projects/:id/material` | `{ assetIds? }` → `image/png` review sheet |
 | `POST /api/projects/:id/frames` | `{ times?, width?, columns?, labels?, outputPath? }` → `image/png` |
 | `POST /api/projects/:id/export` | `{ format, scale, fps, quality, motionBlur, includeAudio, outputPath?, overwrite? }` → `{ path, codec, frames, seconds, bytes }` |
 | `WS /api/live?project=:id&client=:cid` | server → `{type:"snapshot", project, revision, origin}`; client → `{type:"put", project}` |

@@ -2,6 +2,37 @@
 
 Complete, tested sequences.
 
+## A. Brief + Android app + song → ad (validated on a real phone with UniCali)
+
+```text
+create_project  {"name": "UniCali – Simula tu sustitutorio"}
+capture_open    {"kind": "android", "app": "com.mantra.unsap"}
+capture_act     {"step": {"tap": {"text": "Lab"}}}                    # explore, look at each screen
+capture_take    {"take": {"label": "Tus notas, al día", "setup": [{"tap": {"text": "Notas"}, "after": 1200}],
+                 "steps": [{"wait": 500}, {"scroll": "down", "amount": 0.55, "speed": "slow"}, {"scroll": "down", "amount": 0.55, "speed": "slow"}]}}
+capture_take    {"take": {"label": "Estadísticas", "setup": [{"tap": {"text": "Notas"}, "after": 1200}],
+                 "steps": [{"tap": {"desc": "Ver estadísticas"}}, {"wait": 1500}]}}
+capture_take    {"take": {"label": "Simula tu sustitutorio", "setup": [{"tap": {"text": "Lab"}}, {"tap": {"text": "Estadística Aplicada"}, "after": 1200}],
+                 "steps": [{"tap": {"text": "Examen Parcial"}, "after": 900}, {"swipe": {"from": [0.39, 0.431], "to": [0.82, 0.431], "duration": 1800}}, {"wait": 1200}]}}
+review_material {}
+capture_close   {}
+import_media    {"path": "C:/Users/me/Downloads/song.mp3"}
+set_shots {"shots": [
+  {"kind": "angle", "duration": 3.7, "media": {"assetId": "<grades take>", "fitTake": true}},
+  {"kind": "focus", "duration": 2.9, "region": {"x": 0.5, "y": 0.5, "size": 1.05, "w": 1}, "move": "hold", "transition": 0.5, "media": {"assetId": "<stats take>", "fitTake": true}},
+  {"kind": "focus", "duration": 2.9, "region": {"x": 0.5, "y": 0.5, "size": 1.05, "w": 1}, "move": "hold", "transition": 0.5, "media": {"assetId": "<simulator take>", "fitTake": true}},
+  {"kind": "focus", "duration": 2.8, "region": {"x": 0.5, "y": 0.19, "size": 0.22, "w": 0.95}, "move": "push", "transition": 0.45, "media": {"assetId": "<simulator take>", "from": 99}},
+  {"kind": "hero",  "duration": 2.8, "move": "push", "transition": 0.8, "media": {"assetId": "<simulator take>", "from": 99}}
+]}
+apply_look      {"look": "match-media"}
+fit_to_music    {"phrase": 1}
+render_frames   {}
+export_video    {"format": "mp4", "motionBlur": 4}
+```
+
+Story: grades (context) → statistics (overview) → the simulator turns 8.60 red into 12.63 green
+(the hero action) → close-up on the result (`from` past the end = its final frame) → hero.
+
 ## 0. Script + screenshot + song → promo (the main workflow)
 
 ```text
